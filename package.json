@@ -2,26 +2,63 @@
   "name": "youtube-automation",
   "version": "0.1.0",
   "private": true,
+  "description": "AI-powered YouTube content generator with local TTS support (Coqui) and cloud options (ElevenLabs)",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:env": "source .env.local && npm run dev",
+    "build:env": "source .env.local && npm run build",
+    "start:env": "source .env.local && npm run start",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
+    "setup:local-tts": "echo 'Run: pip install TTS torch torchaudio' && echo 'Test with: tts --list_models'"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.7.0",
+    "@types/fluent-ffmpeg": "^2.1.27",
+    "@types/pg": "^8.15.4",
+    "cloudinary": "^2.7.0",
+    "dotenv": "^17.2.0",
+    "drizzle-orm": "^0.44.3",
+    "fluent-ffmpeg": "^2.1.3",
+    "next": "15.4.3",
+    "openai": "^5.10.2",
+    "pexels": "^1.4.0",
+    "pg": "^8.16.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.4.3"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "drizzle-kit": "^0.31.4",
     "eslint": "^9",
     "eslint-config-next": "15.4.3",
-    "@eslint/eslintrc": "^3"
-  }
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "comment": "ElevenLabs is now optional - use local TTS (Coqui) for free RTX 4090 inference"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "youtube",
+    "automation",
+    "ai",
+    "tts",
+    "local-tts",
+    "coqui",
+    "elevenlabs",
+    "video-generation",
+    "rtx-4090"
+  ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "video_ideas" ADD COLUMN "status" varchar(50) DEFAULT 'active' NOT NULL;
