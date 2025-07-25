@@ -6,13 +6,16 @@ This document explains how to use the Cloudinary integration that has been set u
 
 ### 1. Environment Variables
 
-Add the following environment variable to your `.env` or `.env.local` file:
+Add the following environment variables to your `.env` or `.env.local` file:
 
 ```bash
 CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
+CLOUDINARY_NOTIFICATION_URL=https://your-domain.com/api/cloudinary-webhook  # Optional: for async upload notifications
 ```
 
-Get this URL from your [Cloudinary dashboard](https://cloudinary.com/console) under "API Keys" → "Cloudinary URL".
+Get the CLOUDINARY_URL from your [Cloudinary dashboard](https://cloudinary.com/console) under "API Keys" → "Cloudinary URL".
+
+The CLOUDINARY_NOTIFICATION_URL is optional and used for webhook notifications when processing large files asynchronously.
 
 ### 2. Dependencies
 
@@ -33,6 +36,7 @@ The main service provides methods for:
 - `deleteFile()` - Delete files from Cloudinary
 - `getOptimizedImageUrl()` - Get optimized image URLs
 - `getThumbnailUrl()` - Get thumbnail URLs
+- `checkAsyncUploadStatus()` - Check status of async uploads
 
 ## Usage Examples
 
@@ -50,11 +54,14 @@ const result = await cloudinaryService.uploadImage(file, {
   crop: 'limit'
 });
 
-// Upload audio
+// Upload audio (with async processing for large files)
 const audioResult = await cloudinaryService.uploadAudio(audioFile, {
   folder: 'podcasts',
   bit_rate: '128k'
 });
+
+// Check async upload status
+const status = await cloudinaryService.checkAsyncUploadStatus(publicId, 'video');
 
 // Get optimized image URL
 const optimizedUrl = cloudinaryService.getOptimizedImageUrl(publicId, {
@@ -165,6 +172,38 @@ function MyPage() {
     />
   );
 }
+```
+
+## Async Processing for Large Files
+
+For large audio and video files, Cloudinary processes them asynchronously to avoid timeout issues. The system automatically enables async processing when:
+
+- Audio files are larger than Cloudinary's synchronous processing limit
+- Video files require complex transformations
+- Files need to be processed with specific codecs or quality settings
+
+### Async Processing Features
+
+- **Automatic Detection**: Large files are automatically processed asynchronously
+- **Progress Tracking**: You can check upload status using `checkAsyncUploadStatus()`
+- **Webhook Notifications**: Optional webhook notifications when processing completes
+- **Fallback Handling**: Proper error handling for async processing failures
+
+### Example: Handling Async Uploads
+
+```typescript
+// Upload large audio file
+const result = await cloudinaryService.uploadAudio(largeAudioBuffer, {
+  folder: 'podcasts',
+  eager_async: true, // Explicitly enable async processing
+});
+
+// Check processing status
+const status = await cloudinaryService.checkAsyncUploadStatus(result.public_id, 'video');
+console.log('Processing status:', status);
+
+// The file URL will be available once processing is complete
+console.log('File URL:', result.secure_url);
 ```
 
 ## File Organization

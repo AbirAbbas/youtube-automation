@@ -1,25 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cloudinaryService } from '@/lib/cloudinary';
+import { localStorageService } from '@/lib/local-storage-service';
 import { getFullScriptWithSections, updateVideoScript } from '@/lib/db/videoScripts';
 import { LocalAudioProcessor } from '@/lib/local-audio-utils';
 
 export async function POST(request: NextRequest) {
     const startTime = Date.now();
-    const requestId = `local-tts-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
-    console.log(`🎤 [${requestId}] Starting local TTS request at ${new Date().toISOString()}`);
+    const requestId = Math.random().toString(36).substring(7);
 
     try {
-        const { scriptId, voiceReference } = await request.json();
+        console.log(`🎤 [${requestId}] Starting audio conversion...`);
 
-        console.log(`📝 [${requestId}] Request details:`, {
-            scriptId,
-            hasVoiceReference: !!voiceReference,
-            voiceReferenceType: voiceReference ? typeof voiceReference : 'none'
-        });
+        const { scriptId } = await request.json();
 
         if (!scriptId) {
-            console.error(`❌ [${requestId}] Missing script ID`);
             return NextResponse.json(
                 { error: 'Script ID is required' },
                 { status: 400 }
@@ -31,10 +24,7 @@ export async function POST(request: NextRequest) {
         const { script, sections } = await getFullScriptWithSections(scriptId);
         const dbTime = Date.now() - dbStartTime;
 
-        console.log(`📊 [${requestId}] Database query completed in ${dbTime}ms`);
-
         if (!script) {
-            console.error(`❌ [${requestId}] Script not found: ${scriptId}`);
             return NextResponse.json(
                 { error: 'Script not found' },
                 { status: 404 }
@@ -42,53 +32,28 @@ export async function POST(request: NextRequest) {
         }
 
         if (!sections || sections.length === 0) {
-            console.error(`❌ [${requestId}] No script sections found for script: ${scriptId}`);
             return NextResponse.json(
                 { error: 'No script content found' },
                 { status: 400 }
             );
         }
 
-        console.log(`📑 [${requestId}] Script loaded:`, {
-            title: script.title,
-            sectionsCount: sections.length,
-            totalCharacters: sections.reduce((sum, s) => sum + s.content.length, 0),
-            estimatedDuration: sections.reduce((sum, s) => sum + (s.estimatedDuration ? parseInt(s.estimatedDuration) : 30), 0)
-        });
+        console.log(`📝 [${requestId}] Found ${sections.length} sections, total content: ${sections.reduce((sum, s) => sum + s.content.length, 0)} characters`);
 
-        // Initialize local audio processor with GPU acceleration
+        // Initialize audio processor
         const initStartTime = Date.now();
-        console.log(`🔧 [${requestId}] Initializing LocalAudioProcessor with GPU acceleration...`);
-
-        const audioProcessor = new LocalAudioProcessor({ preferGPU: true });
-        await audioProcessor.initialize();
-
+        const audioProcessor = new LocalAudioProcessor();
         const initTime = Date.now() - initStartTime;
-        console.log(`⚡ [${requestId}] AudioProcessor initialized in ${initTime}ms`);
 
-        // Check capabilities
-        const capabilities = await audioProcessor.checkCapabilities();
-        console.log(`🎯 [${requestId}] TTS Capabilities:`, {
-            gpu: capabilities.gpu,
-            cudaAvailable: capabilities.cudaAvailable,
-            voiceCloning: capabilities.voiceCloning,
-            multiLanguage: capabilities.multiLanguage,
-            recommendedModel: capabilities.recommendedModel
-        });
-
-        // Generate consistent audio for all sections using Coqui TTS
+        // Generate consistent audio for all sections
         const audioStartTime = Date.now();
-        console.log(`🎵 [${requestId}] Starting audio generation for ${sections.length} sections...`);
-
         const audioSegments = await audioProcessor.generateConsistentAudio(sections, {
-            voiceReference: voiceReference || undefined,
             addPauseBetweenSections: true,
-            pauseDuration: 0.5,
-            language: 'en'
+            pauseDuration: 0.5
         });
-
         const audioTime = Date.now() - audioStartTime;
-        console.log(`✅ [${requestId}] Audio generation completed in ${audioTime}ms (${(audioTime / 1000 / 60).toFixed(1)} minutes)`);
+
+        console.log(`🎵 [${requestId}] Generated ${audioSegments.length} audio segments in ${audioTime}ms`);
 
         // Combine all audio segments
         const combineStartTime = Date.now();
@@ -96,36 +61,34 @@ export async function POST(request: NextRequest) {
         const combineTime = Date.now() - combineStartTime;
 
         const audioStats = {
-            segmentsCount: audioSegments.length,
-            totalSizeBytes: combinedAudioBuffer.length,
             totalSizeMB: (combinedAudioBuffer.length / 1024 / 1024).toFixed(2),
-            estimatedDurationSeconds: (combinedAudioBuffer.length / (24000 * 2)).toFixed(1),
+            segments: audioSegments.length,
             combineTimeMs: combineTime
         };
 
-        console.log(`🔗 [${requestId}] Audio segments combined:`, audioStats);
+        console.log(`🔗 [${requestId}] Combined audio: ${audioStats.totalSizeMB}MB in ${combineTime}ms`);
 
-        // Upload to Cloudinary
+        // Upload to local storage
         const uploadStartTime = Date.now();
-        console.log(`📤 [${requestId}] Uploading ${audioStats.totalSizeMB}MB to Cloudinary...`);
+        console.log(`📤 [${requestId}] Uploading to local storage...`);
 
-        const uploadResult = await cloudinaryService.uploadAudio(combinedAudioBuffer, {
+        const uploadResult = await localStorageService.uploadAudio(combinedAudioBuffer, {
             folder: 'video-scripts/audio',
-            public_id: `script-${scriptId}-audio-local`,
+            public_id: `script-${scriptId}-audio-local-${Date.now()}`,
             format: 'mp3'
         });
 
         const uploadTime = Date.now() - uploadStartTime;
-        console.log(`☁️ [${requestId}] Cloudinary upload completed in ${uploadTime}ms`);
+        console.log(`🏠 [${requestId}] Local storage upload completed in ${uploadTime}ms`);
 
         if (!uploadResult.secure_url) {
-            console.error(`❌ [${requestId}] Cloudinary upload failed - no secure URL returned`);
-            throw new Error('Failed to upload audio to Cloudinary');
+            console.error(`❌ [${requestId}] Local storage upload failed - no secure URL returned`);
+            throw new Error('Failed to upload audio to local storage');
         }
 
         console.log(`🔗 [${requestId}] Audio uploaded successfully:`, {
             url: uploadResult.secure_url,
-            cloudinaryPublicId: uploadResult.public_id,
+            localPath: uploadResult.local_path,
             uploadTimeMs: uploadTime
         });
 
@@ -153,44 +116,32 @@ export async function POST(request: NextRequest) {
         };
 
         console.log(`📊 [${requestId}] Performance metrics:`, performanceMetrics);
-        console.log(`🎉 [${requestId}] Request completed successfully in ${performanceMetrics.totalTimeMinutes} minutes`);
 
         return NextResponse.json({
             success: true,
             audioUrl: uploadResult.secure_url,
-            message: 'Audio generated successfully using local TTS',
-            details: {
-                requestId,
-                sections: audioSegments.length,
-                duration: audioStats.estimatedDurationSeconds + 's',
-                size: audioStats.totalSizeMB + 'MB',
-                provider: `Coqui TTS (${capabilities.gpu ? 'RTX 4090' : 'CPU'})`,
-                model: capabilities.recommendedModel,
-                voiceCloning: capabilities.voiceCloning,
-                multiLanguage: capabilities.multiLanguage,
-                performance: {
-                    totalTimeMinutes: performanceMetrics.totalTimeMinutes,
-                    audioGenerationTimeMs: audioTime,
-                    charactersPerSecond: performanceMetrics.charactersPerSecond
-                }
+            message: `Script successfully converted to audio with consistent levels`,
+            metadata: {
+                totalSections: sections.length,
+                audioSegments: audioSegments.length,
+                hasNormalization: true,
+                processingMethod: 'section-by-section',
+                storageType: 'local',
+                localPath: uploadResult.local_path,
+                performanceMetrics
             }
         });
 
     } catch (error) {
-        const errorTime = Date.now() - startTime;
-        console.error(`❌ [${requestId}] Error in local audio conversion after ${errorTime}ms:`, {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-            type: error instanceof Error ? error.constructor.name : typeof error
-        });
+        const totalTime = Date.now() - startTime;
+        console.error(`❌ [${requestId}] Audio conversion failed after ${totalTime}ms:`, error);
 
         return NextResponse.json(
             {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-                provider: 'Coqui TTS (Local)',
+                error: 'Audio conversion failed',
+                details: error instanceof Error ? error.message : 'Unknown error',
                 requestId,
-                errorTimeMs: errorTime
+                totalTimeMs: totalTime
             },
             { status: 500 }
         );

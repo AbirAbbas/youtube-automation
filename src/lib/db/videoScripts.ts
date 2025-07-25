@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from './index';
 import {
     videoScripts,
@@ -16,7 +16,9 @@ export async function createVideoScript(data: Omit<NewVideoScript, 'id' | 'creat
 }
 
 export async function getAllVideoScripts(): Promise<VideoScript[]> {
-    return db.select().from(videoScripts).orderBy(videoScripts.createdAt);
+    return db.select().from(videoScripts)
+        .where(eq(videoScripts.isArchived, false))
+        .orderBy(desc(videoScripts.createdAt));
 }
 
 export async function getVideoScriptById(id: number): Promise<VideoScript | undefined> {
@@ -52,6 +54,124 @@ export async function deleteScriptsByIdeaId(videoIdeaId: number) {
     for (const script of scripts) {
         await deleteVideoScript(script.id);
     }
+}
+
+// Archive Management Operations
+export async function archiveVideoScript(id: number): Promise<VideoScript> {
+    const [videoScript] = await db
+        .update(videoScripts)
+        .set({ isArchived: true, updatedAt: new Date() })
+        .where(eq(videoScripts.id, id))
+        .returning();
+    return videoScript;
+}
+
+export async function unarchiveVideoScript(id: number): Promise<VideoScript> {
+    const [videoScript] = await db
+        .update(videoScripts)
+        .set({ isArchived: false, updatedAt: new Date() })
+        .where(eq(videoScripts.id, id))
+        .returning();
+    return videoScript;
+}
+
+export async function getArchivedVideoScripts(): Promise<VideoScript[]> {
+    return db.select().from(videoScripts)
+        .where(eq(videoScripts.isArchived, true))
+        .orderBy(desc(videoScripts.updatedAt));
+}
+
+export async function getAllVideoScriptsIncludingArchived(): Promise<VideoScript[]> {
+    return db.select().from(videoScripts).orderBy(desc(videoScripts.createdAt));
+}
+
+export async function getAllVideoScriptsWithTopics(): Promise<(VideoScript & { topic?: string })[]> {
+    const { videoIdeas } = await import('./schema');
+
+    const results = await db
+        .select({
+            id: videoScripts.id,
+            videoIdeaId: videoScripts.videoIdeaId,
+            title: videoScripts.title,
+            estimatedLength: videoScripts.estimatedLength,
+            totalSections: videoScripts.totalSections,
+            status: videoScripts.status,
+            isArchived: videoScripts.isArchived,
+            audioUrl: videoScripts.audioUrl,
+            videoUrl: videoScripts.videoUrl,
+            thumbnailPath: videoScripts.thumbnailPath,
+            createdAt: videoScripts.createdAt,
+            updatedAt: videoScripts.updatedAt,
+            topic: videoIdeas.topic
+        })
+        .from(videoScripts)
+        .leftJoin(videoIdeas, eq(videoScripts.videoIdeaId, videoIdeas.id))
+        .where(eq(videoScripts.isArchived, false))
+        .orderBy(desc(videoScripts.createdAt));
+
+    return results.map(result => ({
+        ...result,
+        topic: result.topic || undefined
+    }));
+}
+
+export async function getAllVideoScriptsIncludingArchivedWithTopics(): Promise<(VideoScript & { topic?: string })[]> {
+    const { videoIdeas } = await import('./schema');
+
+    const results = await db
+        .select({
+            id: videoScripts.id,
+            videoIdeaId: videoScripts.videoIdeaId,
+            title: videoScripts.title,
+            estimatedLength: videoScripts.estimatedLength,
+            totalSections: videoScripts.totalSections,
+            status: videoScripts.status,
+            isArchived: videoScripts.isArchived,
+            audioUrl: videoScripts.audioUrl,
+            videoUrl: videoScripts.videoUrl,
+            thumbnailPath: videoScripts.thumbnailPath,
+            createdAt: videoScripts.createdAt,
+            updatedAt: videoScripts.updatedAt,
+            topic: videoIdeas.topic
+        })
+        .from(videoScripts)
+        .leftJoin(videoIdeas, eq(videoScripts.videoIdeaId, videoIdeas.id))
+        .orderBy(desc(videoScripts.createdAt));
+
+    return results.map(result => ({
+        ...result,
+        topic: result.topic || undefined
+    }));
+}
+
+export async function getArchivedVideoScriptsWithTopics(): Promise<(VideoScript & { topic?: string })[]> {
+    const { videoIdeas } = await import('./schema');
+
+    const results = await db
+        .select({
+            id: videoScripts.id,
+            videoIdeaId: videoScripts.videoIdeaId,
+            title: videoScripts.title,
+            estimatedLength: videoScripts.estimatedLength,
+            totalSections: videoScripts.totalSections,
+            status: videoScripts.status,
+            isArchived: videoScripts.isArchived,
+            audioUrl: videoScripts.audioUrl,
+            videoUrl: videoScripts.videoUrl,
+            thumbnailPath: videoScripts.thumbnailPath,
+            createdAt: videoScripts.createdAt,
+            updatedAt: videoScripts.updatedAt,
+            topic: videoIdeas.topic
+        })
+        .from(videoScripts)
+        .leftJoin(videoIdeas, eq(videoScripts.videoIdeaId, videoIdeas.id))
+        .where(eq(videoScripts.isArchived, true))
+        .orderBy(desc(videoScripts.updatedAt));
+
+    return results.map(result => ({
+        ...result,
+        topic: result.topic || undefined
+    }));
 }
 
 // Script Section Operations
@@ -93,9 +213,21 @@ export async function deleteScriptSection(id: number) {
 export async function getFullScriptWithSections(scriptId: number): Promise<{
     script: VideoScript | undefined;
     sections: ScriptSection[];
+    topic?: string;
 }> {
     const script = await getVideoScriptById(scriptId);
     const sections = script ? await getScriptSectionsByScriptId(scriptId) : [];
 
-    return { script, sections };
+    // Get topic from related video idea if script exists
+    let topic: string | undefined;
+    if (script?.videoIdeaId) {
+        const { videoIdeas } = await import('./schema');
+        const [videoIdea] = await db
+            .select({ topic: videoIdeas.topic })
+            .from(videoIdeas)
+            .where(eq(videoIdeas.id, script.videoIdeaId));
+        topic = videoIdea?.topic || undefined;
+    }
+
+    return { script, sections, topic };
 } 

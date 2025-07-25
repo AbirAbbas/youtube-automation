@@ -43,6 +43,41 @@
       "when": 1753306071524,
       "tag": "0005_bumpy_victor_mancha",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1753373587686,
+      "tag": "0006_cheerful_scarlet_witch",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753389762930,
+      "tag": "0007_hard_edwin_jarvis",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1753390889649,
+      "tag": "0008_special_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1753396143896,
+      "tag": "0009_adorable_arachne",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1753396671939,
+      "tag": "0010_tricky_bulldozer",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "video_scripts" ADD COLUMN "thumbnail_path" varchar(500);

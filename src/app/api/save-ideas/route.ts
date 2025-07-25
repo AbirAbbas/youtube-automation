@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createVideoIdea } from '@/lib/db/videoIdeas';
+import { getYoutubeChannelById } from '@/lib/db/youtubeChannels';
 
 interface VideoIdea {
     title: string;
@@ -11,12 +12,28 @@ interface VideoIdea {
 
 export async function POST(request: NextRequest) {
     try {
-        const { ideas, topic, category }: { ideas: VideoIdea[]; topic?: string; category?: string } = await request.json();
+        const { ideas, topic, category, channelId }: { ideas: VideoIdea[]; topic?: string; category?: string; channelId: number } = await request.json();
+
+        if (!channelId) {
+            return NextResponse.json(
+                { error: 'Channel ID is required' },
+                { status: 400 }
+            );
+        }
 
         if (!ideas || !Array.isArray(ideas) || ideas.length === 0) {
             return NextResponse.json(
                 { error: 'Ideas array is required and must not be empty' },
                 { status: 400 }
+            );
+        }
+
+        // Validate channel exists
+        const channel = await getYoutubeChannelById(channelId);
+        if (!channel) {
+            return NextResponse.json(
+                { error: 'YouTube channel not found' },
+                { status: 404 }
             );
         }
 
@@ -34,6 +51,7 @@ export async function POST(request: NextRequest) {
         const savedIdeas = [];
         for (const idea of ideas) {
             const savedIdea = await createVideoIdea({
+                channelId: channelId,
                 title: idea.title,
                 description: idea.description,
                 estimatedLength: idea.estimatedLength || null,

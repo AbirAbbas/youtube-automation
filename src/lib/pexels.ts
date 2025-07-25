@@ -118,7 +118,7 @@ class PexelsService {
     }
 
     /**
-     * Find appropriate videos for script sections
+     * Find appropriate videos for script sections - relaxed filtering for better availability
      */
     async findVideosForScript(
         sections: Array<{ title: string; content: string; estimatedDuration: string }>,
@@ -126,41 +126,63 @@ class PexelsService {
     ): Promise<SelectedVideo[]> {
         const selectedVideos: SelectedVideo[] = [];
         let totalSelectedDuration = 0;
-        const minClipDuration = 4; // Minimum clip duration to avoid very short clips
-        const maxClipDuration = 45; // Reduced max to get more variety
-        const targetBuffer = 1.5; // Need 150% of duration to avoid looping
+        const minClipDuration = 3; // Reduced from 8 to allow shorter clips
+        const maxClipDuration = 45; // Increased from 30 to allow longer clips
+        const targetBuffer = 1.15; // Reduced from 1.3 - less strict buffer requirement
 
-        console.log(`🎯 Target duration: ${totalDurationNeeded}s, gathering clips for ${totalDurationNeeded * targetBuffer}s to avoid looping`);
+        console.log(`🎯 Target duration: ${totalDurationNeeded}s, gathering quality clips with relaxed filters`);
 
-        // For each section, find relevant videos with more thorough searching
+        // For each section, find relevant videos with relaxed quality filtering
         for (const section of sections) {
             const keywords = this.extractKeywords(`${section.title} ${section.content}`);
 
-            // Try MORE search terms per section to get better coverage
-            for (const keyword of keywords.slice(0, 6)) { // Increased from 3 to 6
+            // Search with more keywords and relaxed constraints
+            for (const keyword of keywords.slice(0, 6)) { // Increased from 4 to 6 keywords
                 try {
                     const searchResult = await this.searchVideos({
                         query: keyword,
                         orientation: 'landscape',
-                        size: 'medium',
-                        per_page: 20 // Increased from 15 to 20 for more options
+                        size: 'medium', // Changed from 'large' to 'medium' for broader selection
+                        per_page: 20 // Increased from 15 to get more options
                     });
 
                     if (searchResult.videos.length > 0) {
-                        // Filter videos by duration and select multiple good ones
-                        const suitableVideos = searchResult.videos.filter(v =>
-                            v.duration >= minClipDuration && v.duration <= maxClipDuration
-                        );
+                        // Relaxed filtering - prioritize availability over perfect quality
+                        const suitableVideos = searchResult.videos.filter(v => {
+                            // Duration filter - more lenient
+                            if (v.duration < minClipDuration || v.duration > maxClipDuration) return false;
 
-                        // Take up to 3 videos per keyword instead of just 1
-                        for (let i = 0; i < Math.min(3, suitableVideos.length); i++) {
+                            // Relaxed quality filter - accept any HD quality OR good SD quality
+                            const hasGoodFile = v.video_files.some(file => {
+                                // Accept HD quality
+                                if (file.quality && (
+                                    file.quality.includes('1080') ||
+                                    file.quality.includes('720') ||
+                                    file.quality.includes('hd')
+                                )) {
+                                    return true;
+                                }
+
+                                // Also accept good SD quality with reasonable resolution
+                                if (file.width >= 640 && file.height >= 360) {
+                                    return true;
+                                }
+
+                                return false;
+                            });
+
+                            return hasGoodFile;
+                        });
+
+                        // Take more videos per keyword for better coverage
+                        for (let i = 0; i < Math.min(4, suitableVideos.length); i++) { // Increased from 2 to 4
                             const video = this.selectBestVideo([suitableVideos[i]]);
                             if (video && !selectedVideos.find(v => v.id === video.id)) {
                                 selectedVideos.push(video);
                                 totalSelectedDuration += video.duration;
-                                console.log(`📹 Selected "${keyword}" (${i + 1}): ${video.duration}s (${video.quality})`);
+                                console.log(`📹 Selected "${keyword}": ${video.duration}s (${video.quality}, ${video.fps}fps)`);
 
-                                // Stop if we have enough for this keyword
+                                // Stop if we have enough
                                 if (totalSelectedDuration >= totalDurationNeeded * targetBuffer) {
                                     break;
                                 }
@@ -172,26 +194,21 @@ class PexelsService {
                     continue;
                 }
 
-                // Check if we have enough content
                 if (totalSelectedDuration >= totalDurationNeeded * targetBuffer) {
                     break;
                 }
             }
 
-            // If we have enough duration, stop searching sections
             if (totalSelectedDuration >= totalDurationNeeded * targetBuffer) {
                 break;
             }
         }
 
-        // If we don't have enough duration, do MORE aggressive generic searching
-        if (totalSelectedDuration < totalDurationNeeded * 1.3) { // Increased threshold
-            console.log(`⚠️ Need more content: ${totalSelectedDuration}s < ${totalDurationNeeded * 1.3}s, searching more generic terms...`);
-            const genericTerms = [
-                'business', 'technology', 'people working', 'nature', 'city', 'abstract', 'office',
-                'modern', 'creative', 'innovation', 'teamwork', 'professional', 'digital',
-                'workspace', 'meeting', 'collaboration', 'success', 'growth', 'future'
-            ]; // Expanded list
+        // If we don't have enough content, add generic clips with even more relaxed standards
+        if (totalSelectedDuration < totalDurationNeeded * targetBuffer) {
+            console.log(`🔍 Need more content, searching for generic clips with relaxed standards...`);
+
+            const genericTerms = ['business', 'technology', 'nature', 'lifestyle', 'modern', 'abstract', 'city', 'office'];
 
             for (const term of genericTerms) {
                 if (totalSelectedDuration >= totalDurationNeeded * targetBuffer) break;
@@ -200,20 +217,28 @@ class PexelsService {
                     const searchResult = await this.searchVideos({
                         query: term,
                         orientation: 'landscape',
-                        per_page: 20 // Increased
+                        size: 'medium',
+                        per_page: 15
                     });
 
+                    // Even more relaxed filtering for generic content
                     const suitableVideos = searchResult.videos.filter(v =>
-                        v.duration >= minClipDuration && v.duration <= maxClipDuration
+                        v.duration >= minClipDuration &&
+                        v.duration <= maxClipDuration &&
+                        v.video_files.some(file =>
+                            // Accept any reasonable quality video
+                            file.file_type === 'video/mp4' &&
+                            file.width >= 480 &&
+                            file.height >= 270
+                        )
                     );
 
-                    // Take multiple videos per generic term too
-                    for (let i = 0; i < Math.min(4, suitableVideos.length); i++) {
+                    for (let i = 0; i < Math.min(5, suitableVideos.length); i++) { // Take up to 5 generic clips
                         const video = this.selectBestVideo([suitableVideos[i]]);
                         if (video && !selectedVideos.find(v => v.id === video.id)) {
                             selectedVideos.push(video);
                             totalSelectedDuration += video.duration;
-                            console.log(`📹 Selected generic "${term}" (${i + 1}): ${video.duration}s (${video.quality})`);
+                            console.log(`📹 Added generic "${term}": ${video.duration}s (${video.quality}, ${video.fps}fps)`);
 
                             if (totalSelectedDuration >= totalDurationNeeded * targetBuffer) break;
                         }
@@ -224,19 +249,12 @@ class PexelsService {
             }
         }
 
-        // Sort videos by duration to optimize usage (longer clips first to reduce transitions)
+        // Sort by duration (longer clips first for smoother experience)
         selectedVideos.sort((a, b) => b.duration - a.duration);
 
-        // Final validation with more specific feedback
         const coverageRatio = totalSelectedDuration / totalDurationNeeded;
-        if (coverageRatio < 1.2) {
-            console.warn(`⚠️ Low coverage ratio: ${coverageRatio.toFixed(2)}x (${totalSelectedDuration}s/${totalDurationNeeded}s)`);
-            console.warn(`This may result in looping clips. Recommended: gather more clips or use shorter script.`);
-        } else {
-            console.log(`✅ Good coverage: ${coverageRatio.toFixed(2)}x coverage ratio`);
-        }
+        console.log(`✅ Selected ${selectedVideos.length} videos with relaxed filtering: ${totalSelectedDuration}s (${coverageRatio.toFixed(2)}x coverage)`);
 
-        console.log(`✅ Selected ${selectedVideos.length} videos with total duration: ${totalSelectedDuration}s (target: ${totalDurationNeeded}s)`);
         return selectedVideos;
     }
 
@@ -246,49 +264,45 @@ class PexelsService {
     private selectBestVideo(videos: PexelsVideo[]): SelectedVideo | null {
         if (videos.length === 0) return null;
 
-        // Sort by video quality and duration, prioritizing good durations
-        const sortedVideos = videos.sort((a, b) => {
-            // Prefer videos with good duration (5-30 seconds ideal, avoid very short)
-            const aDurationScore = this.getDurationScore(a.duration);
-            const bDurationScore = this.getDurationScore(b.duration);
+        // Sort videos by quality score
+        const scoredVideos = videos.map(video => ({
+            video,
+            score: this.getVideoQualityScore(video)
+        })).sort((a, b) => b.score - a.score);
 
-            if (aDurationScore !== bDurationScore) {
-                return bDurationScore - aDurationScore;
-            }
+        const bestVideo = scoredVideos[0].video;
 
-            // Then by resolution (prefer HD)
-            const aResolution = a.width * a.height;
-            const bResolution = b.width * b.height;
-            return bResolution - aResolution;
-        });
-
-        const bestVideo = sortedVideos[0];
-
-        // Get the best quality file with appropriate frame rate
+        // Get the best quality file with consistent standards
         const bestFile = bestVideo.video_files
             .filter(file => file.file_type === 'video/mp4')
             .sort((a, b) => {
-                // First priority: prefer normal frame rates (24-30fps) to avoid slow motion
-                const isNormalFpsA = a.fps >= 24 && a.fps <= 30;
-                const isNormalFpsB = b.fps >= 24 && b.fps <= 30;
-
-                if (isNormalFpsA && !isNormalFpsB) return -1;
-                if (!isNormalFpsA && isNormalFpsB) return 1;
-
-                // Second priority: quality
+                // First priority: prefer HD quality
                 const getQualityScore = (quality: string | null) => {
                     if (!quality) return 0;
-                    if (quality.includes('1080')) return 3;
-                    if (quality.includes('720')) return 2;
-                    if (quality.includes('480')) return 1;
-                    return 0;
+                    if (quality.includes('1080')) return 4;
+                    if (quality.includes('720')) return 3;
+                    if (quality.includes('480')) return 2;
+                    return 1;
                 };
 
                 const qualityDiff = getQualityScore(b.quality) - getQualityScore(a.quality);
                 if (qualityDiff !== 0) return qualityDiff;
 
-                // Third priority: prefer lower fps if quality is equal (to avoid unnecessary high fps)
-                return a.fps - b.fps;
+                // Second priority: reasonable frame rates (avoid very high fps that might cause issues)
+                const isGoodFpsA = a.fps >= 24 && a.fps <= 60;
+                const isGoodFpsB = b.fps >= 24 && b.fps <= 60;
+
+                if (isGoodFpsA && !isGoodFpsB) return -1;
+                if (!isGoodFpsA && isGoodFpsB) return 1;
+
+                // Third priority: prefer standard frame rates
+                const isStandardFpsA = [24, 25, 30, 50, 60].includes(a.fps);
+                const isStandardFpsB = [24, 25, 30, 50, 60].includes(b.fps);
+
+                if (isStandardFpsA && !isStandardFpsB) return -1;
+                if (!isStandardFpsA && isStandardFpsB) return 1;
+
+                return 0;
             })[0];
 
         if (!bestFile) return null;
@@ -315,6 +329,65 @@ class PexelsService {
         if (duration >= 2 && duration <= 90) return 2;  // Marginal
         if (duration >= 1) return 1;                    // Poor but usable
         return 0; // Too short to be useful
+    }
+
+    /**
+     * Score video quality based on multiple factors - updated for relaxed standards
+     */
+    private getVideoQualityScore(video: PexelsVideo): number {
+        let score = 0;
+
+        // Duration score - more forgiving range
+        if (video.duration >= 5 && video.duration <= 40) {
+            score += 10; // Ideal range widened
+        } else if (video.duration >= 3 && video.duration <= 50) {
+            score += 8;  // Good range expanded
+        } else if (video.duration >= 2 && video.duration <= 60) {
+            score += 5;  // Acceptable range
+        } else if (video.duration >= 1) {
+            score += 2;  // Still usable
+        }
+
+        // Resolution score - more accepting of different qualities
+        const maxResolution = Math.max(...video.video_files.map(f => f.width * f.height));
+        if (maxResolution >= 1920 * 1080) {
+            score += 8; // Full HD
+        } else if (maxResolution >= 1280 * 720) {
+            score += 7; // HD
+        } else if (maxResolution >= 854 * 480) {
+            score += 5; // SD but good
+        } else if (maxResolution >= 640 * 360) {
+            score += 3; // Lower quality but acceptable
+        } else if (maxResolution >= 480 * 270) {
+            score += 1; // Very low but usable
+        }
+
+        // Quality score based on available formats - more accepting
+        const hasGoodQuality = video.video_files.some(f => {
+            // Prefer HD but also accept good SD
+            if (f.quality && (
+                f.quality.includes('1080') ||
+                f.quality.includes('720') ||
+                f.quality.includes('hd')
+            )) {
+                return true;
+            }
+            // Also accept decent resolution even without quality label
+            return f.width >= 640 && f.height >= 360;
+        });
+        if (hasGoodQuality) score += 4; // Reduced from 5 but still bonus
+
+        // Format score - prefer MP4 but don't exclude others
+        const hasMp4 = video.video_files.some(f => f.file_type === 'video/mp4');
+        if (hasMp4) score += 3;
+
+        // Frame rate bonus for standard rates
+        const hasStandardFps = video.video_files.some(f =>
+            f.fps >= 24 && f.fps <= 60 && [24, 25, 30, 50, 60].includes(f.fps)
+        );
+        if (hasStandardFps) score += 2;
+
+        return score;
     }
 
     /**

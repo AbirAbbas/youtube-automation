@@ -23,42 +23,62 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Build the base prompt with emphasis on topic relevance
-        let prompt = `Generate exactly ${count} creative and engaging YouTube ${videoType === 'shorts' ? 'Shorts' : 'video'} ideas that are DIRECTLY RELATED to "${topic}"${category ? ` in the ${category} category` : ''}.
+        // Build the base prompt with emphasis on clickbait titles
+        let prompt = `Generate exactly ${count} INSANELY CLICKABLE YouTube ${videoType === 'shorts' ? 'Shorts' : 'video'} ideas about "${topic}"${category ? ` in the ${category} category` : ''}.
 
-🎯 CRITICAL REQUIREMENTS - TOPIC RELEVANCE IS MANDATORY:
-- EVERY single idea MUST be directly about "${topic}" - no exceptions
-- The title and content must clearly relate to the chosen topic
-- Ideas should be specific to "${topic}" and not generic content
-- Ensure each idea couldn't apply to any other topic
-- The topic "${topic}" should be the main focus, not just mentioned
+🔥 TITLE REQUIREMENTS - MAKE THEM IRRESISTIBLE:
+- MAX 60 characters (shorter = better)
+- Use EMOTIONAL TRIGGERS: Fear, curiosity, urgency, shock, controversy
+- Include SPECIFIC NUMBERS: "2AM", "24 hours", "7 days", etc.
+- Create CURIOSITY GAPS: "You Don't Know", "Nobody Tells You", "Hidden Truth"
+- Use POWER WORDS: Dying, Destroying, Secret, Banned, Exposed, Shocking
+- Make it PERSONAL: "Your Brain", "Your Body", "You're Making"
+- Add URGENCY: "Right Now", "Before It's Too Late", "Immediately"
 
-💡 CONTENT GUIDELINES:
-- Create engaging and click-worthy ideas while staying relevant
-- Think of unique angles and approaches to "${topic}"
-- Consider different formats: tutorials, reviews, experiments, challenges, educational content
-- Make ideas that would genuinely interest people curious about "${topic}"
-- Use compelling language but ensure substance matches the topic
-- Include practical, educational, or entertainment value related to "${topic}"`;
+🎯 PROVEN CLICKBAIT FORMULAS TO USE:
+- "[Body Part/Thing] is [Dying/Destroying] at [Specific Time] (You Don't Know)"
+- "The [Shocking Thing] About ${topic} Nobody Tells You"
+- "[Number] ${topic} [Thing] That Will [Destroy/Save] Your [Life/Health/Future]"
+- "Why [Everyone/Doctors/Experts] Are [Wrong/Lying] About ${topic}"
+- "This [Simple Thing] [Destroys/Fixes] ${topic} [Problem] in [Time Period]"
+- "${topic} is [Killing/Ruining] You (Here's How to Stop It)"
+- "The [Hidden/Secret/Banned] [Thing] About ${topic}"
+
+${category ? `🎭 CATEGORY-SPECIFIC APPROACH FOR "${category}":
+${category.toLowerCase().includes('how-to') ? '- Focus on dramatic transformations and instant results\n- "This ONE Trick" formulas work well' : ''}${category.toLowerCase().includes('essay') ? '- Use philosophical shock: "Why Everything You Know About X is Wrong"\n- Challenge conventional wisdom dramatically' : ''}${category.toLowerCase().includes('explainer') ? '- Promise hidden truths and secret knowledge\n- "The REAL Reason Behind X" approach' : ''}${category.toLowerCase().includes('storytime') ? '- Use personal drama and shocking revelations\n- "I Did X for 30 Days (This Happened)" style' : ''}${category.toLowerCase().includes('comparison') ? '- Use shocking difference reveals\n- "X vs Y: The Truth Will Shock You" format' : ''}${category.toLowerCase().includes('top') ? '- Promise mind-blowing lists with consequences\n- "X Things Destroying Your Life (You Do #3 Daily)"' : ''}${category.toLowerCase().includes('tips') ? '- Focus on secret tips and instant transformations\n- "This ${topic} Secret Changes Everything" style' : ''}${category.toLowerCase().includes('motivational') ? '- Use life-changing revelation language\n- "This ${topic} Truth Will Transform Your Life" approach' : ''}${category.toLowerCase().includes('educational') ? '- Promise shocking facts and hidden knowledge\n- "Scientists Hide This ${topic} Truth From You" style' : ''}${category.toLowerCase().includes('analysis') ? '- Use controversial takes and shocking conclusions\n- "Why ${topic} Analysis is COMPLETELY Wrong" format' : ''}${category.toLowerCase().includes('deep dive') ? '- Promise to expose hidden depths and secrets\n- "The ${topic} Iceberg: What They Don\'t Want You to Know"' : ''}
+
+` : ''}❌ AVOID THESE BORING PATTERNS:
+- "10 reasons why..." 
+- "How to..." (unless dramatic)
+- "A guide to..."
+- "Everything you need to know about..."
+- Generic educational language
+
+✅ GOOD CLICKBAIT EXAMPLES FOR ${topic}:
+Instead of: "Tips for better ${topic.toLowerCase()}"
+Use: "Your ${topic} is Destroying You at Night (Stop This)"
+
+Instead of: "Understanding ${topic.toLowerCase()}"  
+Use: "This ${topic} Secret Doctors Don't Want You to Know"
+
+Instead of: "Benefits of ${topic.toLowerCase()}"
+Use: "${topic} is Rewiring Your Brain (Scientists Shocked)"
+
+🎬 CONTENT MUST STILL BE VALUABLE:
+- The dramatic title must be backed by genuine ${topic} content
+- Ideas should deliver on the clickbait promise
+- Include educational or entertainment value related to ${topic}
+- Think of unique angles and approaches to ${topic}${category ? ` using ${category} format` : ''}`;
 
         // Add AI automation filter
         if (aiAutomatable) {
             prompt += `
 
 🤖 AI AUTOMATION REQUIREMENT:
-- Ideas must be suitable for full AI automation (script generation → audio → video)
-- Avoid ideas requiring:
-  * Physical presence or demonstrations
-  * Real-time interactions or interviews
-  * Location-specific filming
-  * Complex visual effects or animations
-  * Personal experiences or stories
-- Focus on:
-  * Educational content that can be narrated
-  * Informational videos with stock footage
-  * Tutorial-style content with voiceover
-  * List-based or comparison content
-  * Analytical or review content`;
+- Ideas must work with AI narration over stock footage
+- Avoid requiring physical demonstrations or personal presence
+- Focus on informational, educational, or analytical content about ${topic}
+- Perfect for voiceover-style videos with graphics/footage`;
         }
 
         // Add video type specific instructions
@@ -66,67 +86,53 @@ export async function POST(request: NextRequest) {
             prompt += `
 
 📱 YOUTUBE SHORTS SPECIFIC:
-- Ideas must be suitable for 15-60 second videos
-- Content should be quick, punchy, and immediately engaging
-- Focus on one clear, simple concept per video
-- Perfect for quick tips, facts, or bite-sized information about "${topic}"
-- Estimated length should be "30 seconds", "45 seconds", or "60 seconds"
-- Think snackable content that delivers value fast`;
+- Even MORE clickable titles (people scroll FAST)
+- Ideas for 15-60 second videos
+- ONE shocking fact or tip about ${topic}
+- Maximum impact in minimum time
+- Estimated length: "30 seconds", "45 seconds", or "60 seconds"`;
         } else {
             prompt += `
 
 🎬 FULL-LENGTH VIDEO SPECIFIC:
-- Ideas suitable for 8-20+ minute videos
-- Content should allow for detailed exploration of "${topic}"
-- Can include multiple sub-topics or detailed analysis
-- Perfect for in-depth tutorials, comprehensive guides, or detailed discussions about "${topic}"
-- Estimated length should be "10 minutes", "15 minutes", "20 minutes", etc.`;
+- Titles that promise comprehensive ${topic} insights
+- Ideas for 8-20+ minute deep dives
+- Can build up the dramatic promise throughout the video
+- Estimated length: "10 minutes", "15 minutes", "20 minutes"`;
         }
 
         // Add web search instructions when enabled
         if (enableWebSearch) {
-            prompt += ` 
+            prompt += `
 
-🌐 TRENDING CONTEXT: Consider current trends, news, and discussions related to "${topic}" to make ideas more timely and relevant:
-- Recent developments in "${topic}"
-- Current debates or controversies about "${topic}"
-- Seasonal relevance to "${topic}"
-- Popular questions people are asking about "${topic}"
-- Recent updates or changes in "${topic}"
-- Trending aspects of "${topic}" on social media
-
-Keep the focus on "${topic}" but make it feel current and relevant!`;
+🌐 TRENDING CONTEXT: 
+- Use recent ${topic} developments to add urgency
+- Reference current controversies or debates about ${topic}
+- Make titles feel timely: "Right Now", "In 2024", "This Week"`;
         }
 
         prompt += `
 
-🎯 TITLE AND FORMAT REQUIREMENTS:
-- Titles must clearly indicate the content is about "${topic}"
-- Use engaging language but ensure it's truthful and deliverable
-- For ${videoType === 'shorts' ? 'Shorts' : 'full videos'}: make titles appropriate for the format
-- Avoid misleading clickbait that doesn't relate to "${topic}"
-- Include relevant keywords about "${topic}" in titles
+🎯 OUTPUT FORMAT:
+Return ONLY a valid JSON array. Each title should make people think "I NEED to watch this RIGHT NOW."
 
-Return ONLY a valid JSON array with no additional text or formatting. Each object should have exactly these fields:
-- title: An engaging title that clearly relates to "${topic}"
-- description: A brief description (1-2 sentences) explaining the "${topic}"-related content
-- estimatedLength: Estimated video length ${videoType === 'shorts' ? '(e.g., "30 seconds", "45 seconds", "60 seconds")' : '(e.g., "10 minutes", "15 minutes", "20 minutes")'}
-
-Example format for ${videoType}:
+Example format:
 [
   {
-    "title": "${videoType === 'shorts' ? `5 Quick ${topic} Tips You Need to Know` : `The Complete Guide to Understanding ${topic}`}",
-    "description": "A ${videoType === 'shorts' ? 'quick overview of essential' : 'comprehensive exploration of'} ${topic} ${videoType === 'shorts' ? 'tips' : 'concepts'} that will help viewers understand this topic better.",
-    "estimatedLength": "${videoType === 'shorts' ? '45 seconds' : '15 minutes'}"
+    "title": "Your ${topic} is Destroying You at Night (Stop This)",
+    "description": "Shocking revelations about ${topic} that most people don't realize are harming them.",
+    "estimatedLength": "${videoType === 'shorts' ? '45 seconds' : '12 minutes'}"
   }
-]`;
+]
+
+CREATE TITLES THAT ARE IMPOSSIBLE TO IGNORE!`;
 
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [
                 {
                     role: 'system',
-                    content: `You are a YouTube content strategist who creates highly relevant and engaging video ideas. Your primary goal is to ensure EVERY idea is directly related to the specified topic - no generic or off-topic content allowed. Focus on topic relevance first, engagement second. ${aiAutomatable ? 'Generate only ideas that can be fully automated with AI (narration over stock footage/graphics).' : ''} ${videoType === 'shorts' ? 'Create ideas perfect for YouTube Shorts (15-60 seconds).' : 'Create ideas for full-length YouTube videos (8+ minutes).'} You must return ONLY valid JSON arrays with no additional text, explanations, or formatting. Never include markdown code blocks or any text outside the JSON array.`,
+                    content: `You are a master YouTube clickbait creator who generates titles with 10M+ views. Your titles are short, shocking, and impossible to ignore. Focus on emotional triggers, curiosity gaps, and urgency. Make titles that people literally cannot scroll past. Every title must be directly about "${topic}"${category ? ` using ${category} format/style` : ''}. ${aiAutomatable ? 'Ensure content can be AI-generated with narration over stock footage.' : ''} ${videoType === 'shorts' ? 'Create maximum-impact Shorts titles.' : 'Create binge-worthy full-video titles.'} Return ONLY valid JSON - no markdown, no extra text.`,
                 },
                 {
                     role: 'user',
@@ -134,7 +140,10 @@ Example format for ${videoType}:
                 },
             ],
             max_tokens: 2000,
-            temperature: 0.8, // Slightly reduced for better topic adherence
+            temperature: 0.95, // Higher creativity for more dramatic titles
+            top_p: 0.9,
+            frequency_penalty: 0.5, // Avoid repetitive phrases
+            presence_penalty: 0.6, // Encourage varied approaches
         });
 
         const responseText = completion.choices[0]?.message?.content?.trim();
@@ -164,22 +173,22 @@ Example format for ${videoType}:
                 throw new Error('Response is not an array');
             }
 
-            // Validate each idea has required fields
+            // Validate each idea has required fields and enforce title length
             ideas = ideas.map((idea, index) => ({
-                title: idea.title || `INSANE ${topic} Video Idea ${index + 1}`,
-                description: idea.description || 'Mind-blowing content that will shock viewers.',
-                estimatedLength: idea.estimatedLength || '10 minutes'
+                title: (idea.title || `Your ${topic} is Broken (Fix This Now)`).substring(0, 60), // Enforce 60 char limit
+                description: idea.description || 'Shocking revelations that will change everything you thought you knew.',
+                estimatedLength: idea.estimatedLength || (videoType === 'shorts' ? '45 seconds' : '12 minutes')
             }));
 
         } catch (parseError) {
             console.error('JSON parsing failed:', parseError);
             console.error('Raw response:', responseText);
 
-            // Fallback: create a single idea with the raw text
+            // Fallback: create clickbait ideas
             ideas = [{
-                title: `CRAZY ${topic} Ideas That Will BLOW YOUR MIND!`,
-                description: responseText,
-                estimatedLength: 'Various'
+                title: `Your ${topic} is Killing You (Stop This Now)`,
+                description: `Shocking truths about ${topic} that will completely change how you think about this topic.`,
+                estimatedLength: videoType === 'shorts' ? '45 seconds' : '12 minutes'
             }];
         }
 

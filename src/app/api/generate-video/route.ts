@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hybridUploadService } from '@/lib/upload-service';
+import { localUploadService } from '@/lib/upload-service';
 import { getFullScriptWithSections, updateVideoScript } from '@/lib/db/videoScripts';
 import { pexelsService } from '@/lib/pexels';
 import { videoProcessor, VideoProcessor } from '@/lib/video-processor';
+import { generateThumbnail } from '@/lib/generate-thumbnail';
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,12 +22,6 @@ export async function POST(request: NextRequest) {
                 { error: 'Pexels API key not configured' },
                 { status: 500 }
             );
-        }
-
-        // Check if any upload service is available (Cloudinary or local storage)
-        const storageStats = await hybridUploadService.getStorageStats();
-        if (!storageStats.cloudinary.configured) {
-            console.log('⚠️ Cloudinary not configured, will use local storage fallback');
         }
 
         // Get the script and its sections
@@ -58,10 +53,18 @@ export async function POST(request: NextRequest) {
         // Step 1: Get audio duration
         console.log('📏 Getting audio duration...');
         const audioDuration = await videoProcessor.getAudioDuration(script.audioUrl);
-        console.log(`Audio duration: ${audioDuration} seconds`);
 
-        // Step 2: Find relevant stock videos
-        console.log('🔍 Searching for relevant stock videos...');
+        if (!audioDuration || audioDuration <= 0) {
+            return NextResponse.json(
+                { error: 'Invalid audio duration' },
+                { status: 400 }
+            );
+        }
+
+        console.log(`🎵 Audio duration: ${audioDuration.toFixed(2)}s`);
+
+        // Step 2: Find relevant videos
+        console.log('🔍 Finding relevant videos...');
         const selectedVideos = await pexelsService.findVideosForScript(
             sections.map(section => ({
                 title: section.title,
@@ -71,54 +74,26 @@ export async function POST(request: NextRequest) {
             audioDuration
         );
 
-        if (selectedVideos.length === 0) {
+        if (!selectedVideos || selectedVideos.length === 0) {
             return NextResponse.json(
-                { error: 'Could not find suitable stock videos' },
-                { status: 400 }
+                { error: 'No relevant videos found' },
+                { status: 404 }
             );
         }
 
-        const totalVideoDuration = selectedVideos.reduce((sum, v) => sum + v.duration, 0);
-        console.log(`Found ${selectedVideos.length} videos with total duration: ${totalVideoDuration} seconds`);
+        console.log(`📹 Found ${selectedVideos.length} relevant videos`);
 
-        // Enhanced validation with better coverage requirements
-        const coverageRatio = totalVideoDuration / audioDuration;
-        const minimumCoverageRatio = 1.2; // Need 120% coverage for smooth playback
+        // Calculate total available video duration
+        const totalVideoDuration = selectedVideos.reduce((sum: number, video: any) => sum + video.duration, 0);
+        console.log(`📊 Total video duration: ${totalVideoDuration}s`);
 
-        if (coverageRatio < minimumCoverageRatio) {
+        // More forgiving fallback validation
+        if (totalVideoDuration < audioDuration * 0.6) { // Reduced from 0.8 to 0.6 (60% minimum)
             return NextResponse.json(
                 {
                     error: 'Insufficient video content found',
-                    details: `Found ${totalVideoDuration}s of video for ${audioDuration}s of audio (${coverageRatio.toFixed(2)}x coverage). Need at least ${minimumCoverageRatio}x coverage (${(audioDuration * minimumCoverageRatio).toFixed(1)}s) for smooth playback without excessive looping.`,
-                    suggestion: 'Try using a shorter script, different keywords, or the system will need to loop clips which may cause repetitive content.',
-                    metadata: {
-                        videosFound: selectedVideos.length,
-                        totalVideoDuration,
-                        audioDuration,
-                        coverageRatio: coverageRatio.toFixed(2),
-                        requiredCoverage: minimumCoverageRatio,
-                        shortfall: (audioDuration * minimumCoverageRatio - totalVideoDuration).toFixed(1)
-                    }
-                },
-                { status: 400 }
-            );
-        }
-
-        // Check for potential quality issues with very short clips
-        const shortClips = selectedVideos.filter(v => v.duration < 5);
-        if (shortClips.length > selectedVideos.length * 0.3) { // Reduced threshold from 50% to 30%
-            console.warn(`⚠️ Warning: ${shortClips.length}/${selectedVideos.length} clips are shorter than 5 seconds. This may reduce video quality.`);
-        }
-
-        console.log(`✅ Good coverage ratio: ${coverageRatio.toFixed(2)}x (${totalVideoDuration}s for ${audioDuration}s audio)`);
-
-        // Validate we have sufficient video content
-        if (totalVideoDuration < audioDuration * 0.8) {
-            return NextResponse.json(
-                {
-                    error: 'Insufficient video content found',
-                    details: `Found ${totalVideoDuration}s of video for ${audioDuration}s of audio. Need at least ${(audioDuration * 0.8).toFixed(1)}s.`,
-                    suggestion: 'Try using a shorter script or the system will loop shorter clips to fill the duration.'
+                    details: `Found ${totalVideoDuration}s of video for ${audioDuration}s of audio. Need at least ${(audioDuration * 0.6).toFixed(1)}s for basic video generation.`,
+                    suggestion: 'Try using a shorter script, different keywords, or the system will loop available clips to fill the duration.'
                 },
                 { status: 400 }
             );
@@ -149,11 +124,11 @@ export async function POST(request: NextRequest) {
             processingOptions
         );
 
-        // Step 5: Upload video with hybrid service (Cloudinary first, local fallback)
-        console.log('📤 Uploading video...');
+        // Step 5: Upload video to local storage
+        console.log('📤 Uploading video to local storage...');
         console.log(`Video size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)}MB`);
 
-        const uploadResult = await hybridUploadService.uploadVideo(videoBuffer, {
+        const uploadResult = await localUploadService.uploadVideo(videoBuffer, {
             folder: 'script-videos',
             public_id: `script-video-${scriptId}-${Date.now()}`,
             tags: ['script-video', `script-${scriptId}`, quality],
@@ -165,67 +140,40 @@ export async function POST(request: NextRequest) {
             videoUrl: uploadResult.secure_url
         });
 
-        console.log(`✅ Video generation completed successfully using ${uploadResult.storage_type} storage`);
+        // Step 7: Generate thumbnail using the script title
+        let thumbnailPath: string | undefined = undefined;
+        if (script.title) {
+            thumbnailPath = await generateThumbnail(script.title);
+            // Update the script with the thumbnail path
+            await updateVideoScript(scriptId, {
+                thumbnailPath
+            });
+        }
+
+        console.log(`✅ Video generation completed successfully using local storage`);
 
         return NextResponse.json({
             success: true,
             videoUrl: uploadResult.secure_url,
+            thumbnailPath,
             message: 'Video generated successfully',
-            storageType: uploadResult.storage_type,
             metadata: {
                 scriptId,
-                audioDuration,
-                videosUsed: selectedVideos.length,
+                audioDuration: audioDuration.toFixed(2),
                 videoSegments: videoSegments.length,
                 quality,
-                resolution: `${processingOptions.outputWidth}x${processingOptions.outputHeight}`,
-                fps: processingOptions.fps,
-                videoUrl: uploadResult.secure_url,
-                storageType: uploadResult.storage_type,
-                fileSize: `${(uploadResult.bytes / 1024 / 1024).toFixed(2)}MB`,
-                videosMetadata: selectedVideos.map(v => ({
-                    id: v.id,
-                    duration: v.duration,
-                    quality: v.quality,
-                    tags: v.tags.slice(0, 3) // First 3 tags only for brevity
-                }))
+                storageType: 'local',
+                localPath: uploadResult.local_path,
+                videoSizeMB: (videoBuffer.length / 1024 / 1024).toFixed(2)
             }
         });
 
     } catch (error) {
-        console.error('❌ Error generating video:', error);
-
-        // Return more specific error information
-        let errorMessage = 'Failed to generate video';
-        let errorDetails = 'Unknown error';
-
-        if (error instanceof Error) {
-            errorDetails = error.message;
-
-            // Categorize common errors
-            if (error.message.includes('Pexels')) {
-                errorMessage = 'Failed to find stock videos';
-            } else if (error.message.includes('FFmpeg') || error.message.includes('video processing')) {
-                errorMessage = 'Video processing failed';
-            } else if (error.message.includes('Cloudinary') || error.message.includes('upload')) {
-                errorMessage = 'Failed to upload video';
-            } else if (error.message.includes('audio duration')) {
-                errorMessage = 'Failed to analyze audio';
-            }
-        }
-
+        console.error('Video generation error:', error);
         return NextResponse.json(
             {
-                error: errorMessage,
-                details: errorDetails,
-                troubleshooting: {
-                    checkPexelsApiKey: 'Ensure PEXELS_API_KEY is set in environment variables',
-                    checkStorage: 'If Cloudinary fails, local storage will be used as fallback',
-                    checkCloudinary: 'For cloud storage, ensure CLOUDINARY_URL is properly configured',
-                    checkFFmpeg: 'Ensure FFmpeg is installed on the system',
-                    checkAudio: 'Ensure the script has a valid audio URL',
-                    checkLocalStorage: 'Ensure the application has write permissions for local file storage'
-                }
+                error: 'Video generation failed',
+                details: error instanceof Error ? error.message : 'Unknown error'
             },
             { status: 500 }
         );

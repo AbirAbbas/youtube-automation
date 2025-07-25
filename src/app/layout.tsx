@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navigation from "./components/Navigation";
+import { ChannelProvider } from './components/Navigation';
 
 export const metadata: Metadata = {
   title: "YouTube Video Idea Generator",
@@ -16,8 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <Navigation />
-        {children}
+        <ChannelProvider>
+          <Navigation />
+          {children}
+        </ChannelProvider>
       </body>
     </html>
   );

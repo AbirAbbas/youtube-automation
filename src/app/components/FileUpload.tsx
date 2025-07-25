@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { useCloudinaryUpload } from '@/lib/hooks/useCloudinaryUpload';
-import { validateFile, formatFileSize } from '@/lib/upload-utils';
+import React, { useState, useRef, ChangeEvent, DragEvent } from 'react';
+import { validateFile } from '@/lib/upload-utils';
+import { useLocalUpload } from '@/lib/hooks/useCloudinaryUpload';
 
 interface FileUploadProps {
     onUploadSuccess?: (result: any) => void;
@@ -23,7 +23,7 @@ export default function FileUpload({
 }: FileUploadProps) {
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { uploadFile, isUploading, error, result, progress, reset } = useCloudinaryUpload();
+    const { uploadFile, isUploading, error, result, progress, reset } = useLocalUpload();
 
     const handleDragEnter = (e: DragEvent) => {
         e.preventDefault();
@@ -115,21 +115,15 @@ export default function FileUpload({
 
     return (
         <div className={`w-full ${className}`}>
-            {/* Upload Area */}
             <div
-                className={`
-          border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200
-          ${isDragOver
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragOver
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-300 hover:border-gray-400'
-                    }
-          ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
-        `}
+                    } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
                 onDragEnter={handleDragEnter}
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                onClick={!isUploading ? openFileDialog : undefined}
             >
                 <input
                     ref={fileInputRef}
@@ -137,70 +131,45 @@ export default function FileUpload({
                     accept={getAcceptAttribute()}
                     onChange={handleFileSelect}
                     className="hidden"
-                    disabled={isUploading}
                 />
 
                 {isUploading ? (
-                    <div className="space-y-4">
-                        <div className="text-lg font-medium text-gray-600">
-                            Uploading... {progress}%
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${progress}%` }}
-                            />
-                        </div>
+                    <div className="space-y-2">
+                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                        <p className="text-sm text-gray-600">Uploading... {progress}%</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                         <div className="text-4xl">📁</div>
-                        <div className="text-lg font-medium text-gray-600">
+                        <p className="text-lg font-medium text-gray-700">
                             {getUploadText()}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                            Drag and drop files here, or click to select files
-                        </div>
-                        <div className="text-xs text-gray-400">
-                            Max file size: {maxSizeInMB}MB
-                        </div>
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            Drag and drop files here, or{' '}
+                            <button
+                                type="button"
+                                onClick={openFileDialog}
+                                className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                                browse
+                            </button>
+                        </p>
+                        <p className="text-xs text-gray-400">
+                            Max size: {maxSizeInMB}MB
+                        </p>
                     </div>
                 )}
             </div>
 
-            {/* Error Display */}
             {error && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="text-red-600 text-sm font-medium">Upload Error</div>
-                    <div className="text-red-500 text-sm">{error}</div>
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                    {error}
                 </div>
             )}
 
-            {/* Success Display */}
-            {result && !isUploading && (
-                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="text-green-600 text-sm font-medium mb-2">Upload Successful!</div>
-                    <div className="space-y-2 text-sm">
-                        <div><strong>Public ID:</strong> {result.public_id}</div>
-                        <div><strong>Format:</strong> {result.format}</div>
-                        <div><strong>Size:</strong> {formatFileSize(result.bytes)}</div>
-                        {result.width && result.height && (
-                            <div><strong>Dimensions:</strong> {result.width} × {result.height}</div>
-                        )}
-                        {result.duration && (
-                            <div><strong>Duration:</strong> {Math.round(result.duration)}s</div>
-                        )}
-                        <div className="mt-2">
-                            <a
-                                href={result.secure_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 text-sm underline"
-                            >
-                                View uploaded file
-                            </a>
-                        </div>
-                    </div>
+            {result && (
+                <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+                    File uploaded successfully to local storage!
                 </div>
             )}
         </div>

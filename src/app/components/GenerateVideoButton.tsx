@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Button from './ui/Button';
+import { getTopicIcon } from '@/lib/topic-icon-mapper';
 
 interface GenerateVideoButtonProps {
     scriptId: number;
-    existingVideoUrl?: string | null;
+    existingVideoUrl?: string;
     hasAudio: boolean;
     onVideoGenerated?: (videoUrl: string) => void;
     disabled?: boolean;
+    videoTitle?: string; // Add video title prop
+    topic?: string; // Add topic prop for icon mapping
 }
 
 export default function GenerateVideoButton({
@@ -15,26 +19,37 @@ export default function GenerateVideoButton({
     existingVideoUrl,
     hasAudio,
     onVideoGenerated,
-    disabled = false
+    disabled = false,
+    videoTitle = 'AUDIO', // Use video title as default, fallback to 'AUDIO'
+    topic
 }: GenerateVideoButtonProps) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium');
+    const [videoMode, setVideoMode] = useState<'stock' | 'subtitle'>('subtitle'); // Default to subtitle mode
+    const [backgroundColor, setBackgroundColor] = useState('#1a1a1a');
+    const [fontSize, setFontSize] = useState(48); // Default size for icons to be clearly visible
+    const [customText, setCustomText] = useState(topic ? getTopicIcon(topic) : '📹'); // Use topic icon as default display text
 
     const handleGenerateVideo = async () => {
         try {
             setIsGenerating(true);
             setError(null);
 
-            const response = await fetch('/api/generate-video', {
+            // Choose API endpoint based on video mode
+            const endpoint = videoMode === 'subtitle' ? '/api/generate-subtitle-video' : '/api/generate-video';
+
+            // Prepare request body based on video mode
+            const requestBody = videoMode === 'subtitle'
+                ? { scriptId, quality, backgroundColor, fontSize, customText }
+                : { scriptId, quality };
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    scriptId,
-                    quality
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             const data = await response.json();
@@ -65,8 +80,13 @@ export default function GenerateVideoButton({
     // If script doesn't have audio yet
     if (!hasAudio) {
         return (
-            <div className="text-sm text-gray-500 italic">
-                Generate audio first to create video
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                    <div className="text-yellow-600 dark:text-yellow-400">🎤</div>
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300 font-medium">
+                        Generate audio first to create video
+                    </div>
+                </div>
             </div>
         );
     }
@@ -74,28 +94,24 @@ export default function GenerateVideoButton({
     // If video already exists
     if (existingVideoUrl && !isGenerating) {
         return (
-            <div className="flex items-center gap-3">
-                <button
+            <div className="flex flex-col gap-2">
+                <Button
+                    variant="success"
+                    size="sm"
                     onClick={watchVideo}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
+                    className="w-full"
                 >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m-7-4v8a4 4 0 008 0v-8M7 6h10a4 4 0 014 4v8a4 4 0 01-4 4H7a4 4 0 01-4-4v-8a4 4 0 014-4z" />
-                    </svg>
-                    Watch Video
-                </button>
-
-                <button
+                    🎬 Watch Video
+                </Button>
+                <Button
+                    variant="primary-ghost"
+                    size="sm"
                     onClick={handleGenerateVideo}
                     disabled={disabled || isGenerating}
-                    className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Regenerate video with new stock footage"
+                    className="w-full"
                 >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Regenerate
-                </button>
+                    🔄 Regenerate Video
+                </Button>
             </div>
         );
     }
@@ -103,70 +119,181 @@ export default function GenerateVideoButton({
     // Generate video button
     return (
         <div className="space-y-3">
+            {/* Video Mode selector */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                <label className="block text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Video Type:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setVideoMode('subtitle')}
+                        disabled={isGenerating}
+                        className={`p-2 text-xs rounded-lg border transition-all ${videoMode === 'subtitle'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                        📝 Subtitle Video
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setVideoMode('stock')}
+                        disabled={isGenerating}
+                        className={`p-2 text-xs rounded-lg border transition-all ${videoMode === 'stock'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600 hover:bg-blue-50 dark:hover:bg-slate-600'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                        🎞️ Stock Footage
+                    </button>
+                </div>
+                <div className="text-xs text-blue-700 dark:text-blue-300">
+                    {videoMode === 'subtitle' && '📝 Simple text overlay video - fast and clean'}
+                    {videoMode === 'stock' && '🎞️ AI-selected stock footage - more complex'}
+                </div>
+            </div>
+
             {/* Quality selector */}
-            <div className="flex items-center gap-2">
-                <label className="text-sm font-medium text-gray-700">
-                    Quality:
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 space-y-2">
+                <label className="block text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Video Quality:
                 </label>
                 <select
                     value={quality}
                     onChange={(e) => setQuality(e.target.value as 'low' | 'medium' | 'high')}
                     disabled={isGenerating}
-                    className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                    className="w-full text-sm border border-purple-300 dark:border-purple-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <option value="low">Low (Fast)</option>
-                    <option value="medium">Medium (Balanced)</option>
-                    <option value="high">High (Best Quality)</option>
+                    <option value="low">Low Quality (Fast)</option>
+                    <option value="medium">Medium Quality (Balanced)</option>
+                    <option value="high">High Quality (Best)</option>
                 </select>
+                <div className="text-xs text-purple-700 dark:text-purple-300">
+                    {quality === 'low' && '⚡ Fast processing, smaller file size'}
+                    {quality === 'medium' && '⚖️ Balanced quality and speed'}
+                    {quality === 'high' && '✨ Best quality, slower processing'}
+                </div>
             </div>
 
-            <button
+            {/* Subtitle-specific options */}
+            {videoMode === 'subtitle' && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-3">
+                    <div>
+                        <label className="block text-sm font-medium text-green-900 dark:text-green-100 mb-1">
+                            Background Color:
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="color"
+                                value={backgroundColor}
+                                onChange={(e) => setBackgroundColor(e.target.value)}
+                                disabled={isGenerating}
+                                className="w-8 h-8 rounded border border-green-300 dark:border-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                            <input
+                                type="text"
+                                value={backgroundColor}
+                                onChange={(e) => setBackgroundColor(e.target.value)}
+                                disabled={isGenerating}
+                                placeholder="#1a1a1a"
+                                className="flex-1 text-sm border border-green-300 dark:border-green-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-green-900 dark:text-green-100 mb-1">
+                            Icon Size: {fontSize}px
+                        </label>
+                        <input
+                            type="range"
+                            min="24"
+                            max="72"
+                            step="4"
+                            value={fontSize}
+                            onChange={(e) => setFontSize(parseInt(e.target.value))}
+                            disabled={isGenerating}
+                            className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex justify-between text-xs text-green-700 dark:text-green-300 mt-1">
+                            <span>Small</span>
+                            <span>Large</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-green-900 dark:text-green-100 mb-1">
+                            Display Icon:
+                        </label>
+                        <input
+                            type="text"
+                            value={customText}
+                            onChange={(e) => setCustomText(e.target.value)}
+                            disabled={isGenerating}
+                            placeholder="Enter emoji or text to display..."
+                            className="w-full text-sm border border-green-300 dark:border-green-700 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="text-xs text-green-700 dark:text-green-300 mt-1">
+                            {topic ? `Topic icon: ${getTopicIcon(topic)}` : 'This icon/text will appear centered on the video'}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <Button
+                variant="primary"
+                size="sm"
                 onClick={handleGenerateVideo}
                 disabled={disabled || isGenerating}
-                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                isLoading={isGenerating}
+                loadingText={videoMode === 'subtitle' ? 'Creating subtitle video...' : 'Generating video...'}
+                className="w-full"
             >
-                {isGenerating ? (
-                    <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Generating...
-                    </>
-                ) : (
-                    <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                        Generate Video
-                    </>
-                )}
-            </button>
+                {videoMode === 'subtitle' ? '📝 Create Subtitle Video' : '🎬 Generate Stock Video'}
+            </Button>
 
             {/* Progress info during generation */}
             {isGenerating && (
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
                     <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                        <span>Finding relevant stock videos...</span>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                            {videoMode === 'subtitle'
+                                ? 'Creating synchronized subtitles...'
+                                : 'Finding relevant stock videos...'
+                            }
+                        </span>
                     </div>
-                    <div className="text-xs text-gray-500 ml-4">
-                        This may take 2-5 minutes depending on video length
+                    <div className="text-xs text-blue-600 dark:text-blue-400">
+                        {videoMode === 'subtitle'
+                            ? 'This usually takes 30-60 seconds'
+                            : 'This may take 2-5 minutes depending on video length and quality settings'
+                        }
                     </div>
                 </div>
             )}
 
             {/* Error display */}
             {error && (
-                <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                     <div className="flex items-start gap-2">
-                        <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
+                        <div className="text-red-500 text-sm">⚠️</div>
+                        <div className="text-red-700 dark:text-red-300 text-sm">
                             <div className="font-medium">Video generation failed</div>
                             <div className="text-xs mt-1">{error}</div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Info message */}
+            {!isGenerating && !existingVideoUrl && (
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-2">
+                    <div className="text-xs text-purple-700 dark:text-purple-300">
+                        {videoMode === 'subtitle' ? (
+                            <>📝 <strong>Simple & Fast:</strong> Creates video with text overlays synchronized to your audio</>
+                        ) : (
+                            <>✨ <strong>AI-Generated:</strong> Creates videos automatically using relevant stock footage from Pexels</>
+                        )}
                     </div>
                 </div>
             )}

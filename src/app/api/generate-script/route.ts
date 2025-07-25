@@ -174,7 +174,10 @@ Make section titles specific and compelling - they should make viewers want to k
             }
         ],
         max_tokens: 1000,
-        temperature: 0.7
+        temperature: 0.9,
+        top_p: 0.95,
+        frequency_penalty: 0.3,
+        presence_penalty: 0.3
     });
 
     const responseText = completion.choices[0]?.message?.content?.trim();
@@ -287,7 +290,7 @@ REQUIREMENTS:
 - Preview compelling points without spoiling
 - NEVER assume the age, gender, or demographics of your audience
 - Use inclusive terms like "everyone", "viewers", "people", or "folks"
-- FORBIDDEN PHRASES: Never use "Welcome back", "Welcome", "Hey everyone", or any greeting
+- FORBIDDEN PHRASES: Never use "Welcome back", "Welcome", or any greeting
 - Jump straight into compelling content
 
 ${enableWebSearch ? 'Use searchCurrentInfo for any current events, recent developments, or timely information that would make this opening more compelling.' : ''}
@@ -363,7 +366,10 @@ Write ONLY the spoken words. No stage directions or technical notes.`;
         model: 'gpt-4o',
         messages,
         max_tokens: 1200,
-        temperature: 0.7,
+        temperature: 0.9,
+        top_p: 0.95,
+        frequency_penalty: 0.3,
+        presence_penalty: 0.3,
     };
 
     // Add function calling if web search is enabled
@@ -407,7 +413,10 @@ Write ONLY the spoken words. No stage directions or technical notes.`;
             model: 'gpt-4o',
             messages,
             max_tokens: 1200,
-            temperature: 0.7,
+            temperature: 0.9,
+            top_p: 0.95,
+            frequency_penalty: 0.3,
+            presence_penalty: 0.3,
         });
     }
 

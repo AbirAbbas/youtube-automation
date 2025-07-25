@@ -1,6 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import ChannelSelector from './ChannelSelector';
+import CreateChannelModal from './CreateChannelModal';
+import { YoutubeChannel } from '@/lib/db/schema';
 
 interface VideoIdea {
     title: string;
@@ -24,54 +27,86 @@ const VideoIdeaGenerator = () => {
     const [saving, setSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState('');
     const [enableWebSearch, setEnableWebSearch] = useState(false);
-    const [aiAutomatable, setAiAutomatable] = useState(false);
+    const [aiAutomatable, setAiAutomatable] = useState(true);
     const [videoType, setVideoType] = useState<'full-length' | 'shorts'>('full-length');
+    const [selectedChannelId, setSelectedChannelId] = useState<number | undefined>();
+    const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
+    // Add state for loading channel preferences
+    const [loadingChannelPrefs, setLoadingChannelPrefs] = useState(false);
 
     const topics = [
-        'Technology & Programming',
-        'Gaming',
-        'Cooking & Food',
-        'Fitness & Health',
-        'Travel & Adventure',
-        'Beauty & Fashion',
-        'DIY & Crafts',
-        'Music & Audio',
-        'Entertainment & Comedy',
-        'Education & Learning',
-        'Business & Finance',
-        'Science & Innovation',
-        'Sports & Athletics',
-        'Movies & TV Shows',
-        'Photography & Art',
-        'Home & Garden',
-        'Pets & Animals',
-        'Cars & Automotive',
+        'Sleep',
+        'Fictional Stories',
+        'Crime Stories',
+        'Technology',
+        'Programming',
+        'Health',
+        'Music',
+        'Comedy',
+        'Business',
+        'Science',
+        'Sports',
+        'Movies',
+        'Photography',
+        'Homes',
+        'Pets',
+        'Cars',
         'Personal Development',
-        'History & Culture',
-        'Food Reviews',
-        'Tech Reviews',
-        'Lifestyle & Vlogs',
-        'Productivity & Organization',
-        'Mental Health & Wellness'
+        'History',
+        'Productivity',
+        'Mental Health',
+        'Wellness',
+        'Self-Improvement',
+        'Personal Growth',
+        'Personal Finance',
     ];
 
+    // Replace the old categories array with video type categories
     const categories = [
-        'Entertainment',
-        'Education',
-        'Technology',
-        'Gaming',
-        'Lifestyle',
-        'Business',
-        'Health & Fitness',
-        'Travel',
-        'Food',
-        'DIY & Crafts',
-        'Music',
-        'Sports',
-        'News & Politics',
-        'Science',
-        'Art & Design'
+        'How-to',
+        'Essay',
+        'Explainer',
+        'Storytime',
+        'Comparison',
+        'Q&A',
+        'News',
+        'Analysis',
+        'Top 10',
+        'Tips & Tricks',
+        'Motivational',
+        'Educational',
+        'Fiction',
+        'Scientific Explanation',
+        'Thought leadership',
+        'Interesting Facts',
+        'Deep Dive',
     ];
+
+    // Fetch and set topic/category when channel changes
+    useEffect(() => {
+        if (!selectedChannelId) return;
+        setLoadingChannelPrefs(true);
+        fetch(`/api/channels/${selectedChannelId}/preferences`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    setTopic(data.topic || '');
+                    setCategory(data.category || '');
+                }
+            })
+            .finally(() => setLoadingChannelPrefs(false));
+    }, [selectedChannelId]);
+
+    // Save topic/category when changed
+    useEffect(() => {
+        if (!selectedChannelId) return;
+        if (!topic && !category) return;
+        fetch(`/api/channels/${selectedChannelId}/preferences`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic, category })
+        });
+    }, [topic, category, selectedChannelId]);
 
     const generateIdeas = async () => {
         if (!topic.trim()) {
@@ -162,6 +197,11 @@ const VideoIdeaGenerator = () => {
             return;
         }
 
+        if (!selectedChannelId) {
+            setSaveMessage('❌ Please select a YouTube channel first');
+            return;
+        }
+
         setSaving(true);
         setSaveMessage('');
 
@@ -174,7 +214,8 @@ const VideoIdeaGenerator = () => {
                 body: JSON.stringify({
                     ideas,
                     topic: topic.trim(),
-                    category: category.trim()
+                    category: category.trim(),
+                    channelId: selectedChannelId
                 }),
             });
 
@@ -192,6 +233,11 @@ const VideoIdeaGenerator = () => {
         }
     };
 
+    const handleChannelCreated = (channel: YoutubeChannel) => {
+        setSelectedChannelId(channel.id);
+        setSaveMessage(`✅ Channel "${channel.name}" created successfully!`);
+    };
+
     return (
         <div className="max-w-4xl mx-auto p-6">
             <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-2xl p-8 mb-8 border border-gray-100 dark:border-slate-700">
@@ -203,6 +249,28 @@ const VideoIdeaGenerator = () => {
                 </p>
 
                 <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div className="md:col-span-2">
+                            <ChannelSelector
+                                selectedChannelId={selectedChannelId}
+                                onChannelSelect={setSelectedChannelId}
+                                required={true}
+                            />
+                        </div>
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    console.log('Create Channel button clicked');
+                                    setShowCreateChannelModal(true);
+                                }}
+                                className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                                Create Channel
+                            </button>
+                        </div>
+                    </div>
+
                     <div>
                         <label htmlFor="topic" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                             Topic *
@@ -212,6 +280,7 @@ const VideoIdeaGenerator = () => {
                             value={topic}
                             onChange={(e) => setTopic(e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-colors bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                            disabled={loadingChannelPrefs}
                         >
                             <option value="">Select a topic...</option>
                             {topics.map((topicOption) => (
@@ -220,26 +289,35 @@ const VideoIdeaGenerator = () => {
                                 </option>
                             ))}
                         </select>
+                        {/* Move help text below select */}
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <strong>Topic</strong> is what your channel or video is all about (e.g., "Technology & Programming", "Fitness & Health").
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                                Category (Optional)
+                                Category (Video Type)
                             </label>
                             <select
                                 id="category"
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value)}
                                 className="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent outline-none transition-colors bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+                                disabled={loadingChannelPrefs}
                             >
-                                <option value="">Select a category...</option>
+                                <option value="">Select a video type...</option>
                                 {categories.map((cat) => (
                                     <option key={cat} value={cat}>
                                         {cat}
                                     </option>
                                 ))}
                             </select>
+                            {/* Move help text below select */}
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                <strong>Category</strong> is the type or style of video (e.g., How-to, Essay, Review, Challenge, etc.).
+                            </p>
                         </div>
 
                         <div>
@@ -456,6 +534,12 @@ const VideoIdeaGenerator = () => {
                     </div>
                 </div>
             )}
+
+            <CreateChannelModal
+                isOpen={showCreateChannelModal}
+                onClose={() => setShowCreateChannelModal(false)}
+                onChannelCreated={handleChannelCreated}
+            />
         </div>
     );
 };

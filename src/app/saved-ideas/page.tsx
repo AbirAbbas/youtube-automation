@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { VideoIdea } from '@/lib/db/schema';
+import { useState, useEffect, useContext } from 'react';
+import { VideoIdea, YoutubeChannel } from '@/lib/db/schema';
+import { ChannelContext } from '../components/Navigation';
 
 interface SavedIdeasResponse {
     success: boolean;
@@ -11,15 +12,36 @@ interface SavedIdeasResponse {
 
 const SavedIdeasPage = () => {
     const [ideas, setIdeas] = useState<VideoIdea[]>([]);
+    const [channels, setChannels] = useState<YoutubeChannel[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [generatingScripts, setGeneratingScripts] = useState<Set<number>>(new Set());
     const [enableWebSearch, setEnableWebSearch] = useState<{ [key: number]: boolean }>({});
     const [deletingIdeas, setDeletingIdeas] = useState<Set<number>>(new Set());
 
+    const { selectedChannelId } = useContext(ChannelContext);
+
+    // Filter ideas by selected channel
+    const filteredIdeas = selectedChannelId
+        ? ideas.filter(idea => idea.channelId === selectedChannelId)
+        : [];
+
     useEffect(() => {
         fetchSavedIdeas();
+        fetchChannels();
     }, []);
+
+    const fetchChannels = async () => {
+        try {
+            const response = await fetch('/api/channels');
+            const data = await response.json();
+            if (data.channels) {
+                setChannels(data.channels);
+            }
+        } catch (err) {
+            // ignore
+        }
+    };
 
     const fetchSavedIdeas = async () => {
         try {
@@ -194,118 +216,132 @@ const SavedIdeasPage = () => {
                     </div>
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {ideas.map((idea) => (
-                            <div
-                                key={idea.id}
-                                className="bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden"
-                            >
-                                <div className="p-6">
-                                    <div className="mb-4">
-                                        <div className="flex flex-wrap gap-2 mb-3">
-                                            {idea.topic && (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                                    📝 {idea.topic}
-                                                </span>
-                                            )}
-                                            {idea.category && (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                                    🏷️ {idea.category}
-                                                </span>
-                                            )}
+                        {filteredIdeas.map((idea) => {
+                            const channel = channels.find(c => c.id === idea.channelId);
+                            return (
+                                <div
+                                    key={idea.id}
+                                    className="bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden"
+                                >
+                                    {channel && (
+                                        <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                                            Channel: <span className="font-semibold">{channel.name}</span>
                                         </div>
-                                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 leading-tight">
-                                            {idea.title}
-                                        </h3>
-                                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
-                                            {idea.description}
-                                        </p>
-                                    </div>
+                                    )}
+                                    <div className="p-6">
+                                        <div className="mb-4">
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                {idea.topic && (
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                                        📝 {idea.topic}
+                                                    </span>
+                                                )}
+                                                {idea.category && (
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                                        🏷️ {idea.category}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 leading-tight">
+                                                {idea.title}
+                                            </h3>
+                                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                                                {idea.description}
+                                            </p>
+                                        </div>
 
-                                    <div className="flex items-center justify-between text-sm mb-4">
-                                        {idea.estimatedLength && (
-                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                                ⏱️ {idea.estimatedLength}
+                                        <div className="flex items-center justify-between text-sm mb-4">
+                                            {idea.estimatedLength && (
+                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                                                    ⏱️ {idea.estimatedLength}
+                                                </span>
+                                            )}
+
+                                            <span className="text-gray-500 dark:text-gray-400 text-xs">
+                                                {formatDate(idea.createdAt)}
                                             </span>
-                                        )}
-
-                                        <span className="text-gray-500 dark:text-gray-400 text-xs">
-                                            {formatDate(idea.createdAt)}
-                                        </span>
-                                    </div>
-
-                                    {/* Web Search Toggle */}
-                                    <div className="mb-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-lg p-3">
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id={`webSearch-${idea.id}`}
-                                                checked={enableWebSearch[idea.id] || false}
-                                                onChange={() => toggleWebSearch(idea.id)}
-                                                disabled={generatingScripts.has(idea.id)}
-                                                className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 dark:focus:ring-orange-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
-                                            />
-                                            <label htmlFor={`webSearch-${idea.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center">
-                                                <span className="mr-2">🌐</span>
-                                                Include Current Web Information
-                                            </label>
                                         </div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-7">
-                                            When enabled, the script will include up-to-date facts, recent news, and current information about the topic.
-                                        </p>
-                                    </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="space-y-3">
-                                        {/* Delete Button */}
-                                        <button
-                                            onClick={() => handleDeleteIdea(idea)}
-                                            disabled={deletingIdeas.has(idea.id) || generatingScripts.has(idea.id)}
-                                            className={`
-                                                w-full px-4 py-2 rounded-lg font-medium transition-all duration-200
-                                                ${deletingIdeas.has(idea.id) || generatingScripts.has(idea.id)
-                                                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                                    : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                                                }
-                                            `}
-                                        >
-                                            {deletingIdeas.has(idea.id) ? (
-                                                <span className="flex items-center justify-center">
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                                                    Deleting...
-                                                </span>
-                                            ) : (
-                                                '🗑️ Delete Idea'
-                                            )}
-                                        </button>
+                                        {/* Web Search Toggle */}
+                                        <div className="mb-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800/50 rounded-lg p-3">
+                                            <div className="flex items-center space-x-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`webSearch-${idea.id}`}
+                                                    checked={enableWebSearch[idea.id] || false}
+                                                    onChange={() => toggleWebSearch(idea.id)}
+                                                    disabled={generatingScripts.has(idea.id)}
+                                                    className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500 dark:focus:ring-orange-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50"
+                                                />
+                                                <label htmlFor={`webSearch-${idea.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center">
+                                                    <span className="mr-2">🌐</span>
+                                                    Include Current Web Information
+                                                </label>
+                                            </div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 ml-7">
+                                                When enabled, the script will include up-to-date facts, recent news, and current information about the topic.
+                                            </p>
+                                        </div>
 
-                                        {/* Generate Script Button */}
-                                        <button
-                                            onClick={() => handleGenerateScript(idea)}
-                                            disabled={generatingScripts.has(idea.id) || deletingIdeas.has(idea.id)}
-                                            className={`
-                                                w-full px-4 py-2 rounded-lg font-medium transition-all duration-200
-                                                ${generatingScripts.has(idea.id) || deletingIdeas.has(idea.id)
-                                                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                                    : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                                                }
-                                            `}
-                                        >
-                                            {generatingScripts.has(idea.id) ? (
-                                                <span className="flex items-center justify-center">
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                                                    {enableWebSearch[idea.id] ? 'Generating Script with Web Search...' : 'Generating Script...'}
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    🎬 Generate Script
-                                                    {enableWebSearch[idea.id] && <span className="ml-2 text-xs">+ Web Search</span>}
-                                                </>
-                                            )}
-                                        </button>
+                                        {/* Action Buttons */}
+                                        <div className="space-y-3">
+                                            {/* Delete Button */}
+                                            <button
+                                                onClick={() => handleDeleteIdea(idea)}
+                                                disabled={deletingIdeas.has(idea.id) || generatingScripts.has(idea.id)}
+                                                className={`
+                                                    w-full px-4 py-2 rounded-lg font-medium transition-all duration-200
+                                                    ${deletingIdeas.has(idea.id) || generatingScripts.has(idea.id)
+                                                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                                        : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                                                    }
+                                                `}
+                                            >
+                                                {deletingIdeas.has(idea.id) ? (
+                                                    <span className="flex items-center justify-center">
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                                                        Deleting...
+                                                    </span>
+                                                ) : (
+                                                    '🗑️ Delete Idea'
+                                                )}
+                                            </button>
+
+                                            {/* Generate Script Button */}
+                                            <button
+                                                onClick={() => handleGenerateScript(idea)}
+                                                disabled={generatingScripts.has(idea.id) || deletingIdeas.has(idea.id)}
+                                                className={`
+                                                    w-full px-4 py-2 rounded-lg font-medium transition-all duration-200
+                                                    ${generatingScripts.has(idea.id) || deletingIdeas.has(idea.id)
+                                                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                                                        : 'bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
+                                                    }
+                                                `}
+                                            >
+                                                {generatingScripts.has(idea.id) ? (
+                                                    <span className="flex items-center justify-center">
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                                                        {enableWebSearch[idea.id] ? 'Generating Script with Web Search...' : 'Generating Script...'}
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        🎬 Generate Script
+                                                        {enableWebSearch[idea.id] && <span className="ml-2 text-xs">+ Web Search</span>}
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+                    </div>
+                )}
+
+                {(!selectedChannelId || filteredIdeas.length === 0) && (
+                    <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
+                        {selectedChannelId ? 'No ideas found for this channel.' : 'Select a channel to view ideas.'}
                     </div>
                 )}
 

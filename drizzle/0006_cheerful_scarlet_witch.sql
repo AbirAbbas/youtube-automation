@@ -1,0 +1,1 @@
+ALTER TABLE "video_scripts" ADD COLUMN "is_archived" boolean DEFAULT false NOT NULL;

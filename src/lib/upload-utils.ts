@@ -160,17 +160,3 @@ export function formatFileSize(bytes: number): string {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/**
- * Extract public ID from Cloudinary URL
- */
-export function extractPublicIdFromUrl(cloudinaryUrl: string): string | null {
-    try {
-        // Match pattern: https://res.cloudinary.com/{cloud_name}/{resource_type}/upload/{transformations}/{public_id}.{format}
-        const regex = /\/upload\/(?:v\d+\/)?(?:[^/]+\/)*([^/.]+)/;
-        const match = cloudinaryUrl.match(regex);
-        return match ? match[1] : null;
-    } catch (error) {
-        console.error('Error extracting public ID from URL:', error);
-        return null;
-    }
-} 

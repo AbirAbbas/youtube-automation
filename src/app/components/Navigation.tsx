@@ -2,14 +2,45 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import ChannelSelector from './ChannelSelector';
+import { createContext, useContext, useEffect, useState } from 'react';
+
+export const ChannelContext = createContext<{
+    selectedChannelId?: number;
+    setSelectedChannelId: (id: number) => void;
+}>({ selectedChannelId: undefined, setSelectedChannelId: () => { } });
+
+export function ChannelProvider({ children }: { children: React.ReactNode }) {
+    const [selectedChannelId, setSelectedChannelId] = useState<number | undefined>(undefined);
+
+    useEffect(() => {
+        const stored = localStorage.getItem('selectedChannelId');
+        if (stored) setSelectedChannelId(Number(stored));
+    }, []);
+
+    useEffect(() => {
+        if (selectedChannelId) {
+            localStorage.setItem('selectedChannelId', String(selectedChannelId));
+        }
+    }, [selectedChannelId]);
+
+    return (
+        <ChannelContext.Provider value={{ selectedChannelId, setSelectedChannelId }}>
+            {children}
+        </ChannelContext.Provider>
+    );
+}
 
 const Navigation = () => {
     const pathname = usePathname();
+    const { selectedChannelId, setSelectedChannelId } = useContext(ChannelContext);
 
     const navItems = [
         { href: '/', label: 'Generate Ideas', icon: '💡' },
         { href: '/saved-ideas', label: 'Saved Ideas', icon: '📁' },
-        { href: '/saved-scripts', label: 'Saved Scripts', icon: '🎬' }
+        { href: '/saved-scripts', label: 'Saved Scripts', icon: '🎬' },
+        { href: '/channels', label: 'Channels', icon: '📺' },
+        { href: '/archived-videos', label: 'Archived Videos', icon: '📦' }
     ];
 
     return (
@@ -22,26 +53,29 @@ const Navigation = () => {
                         </h1>
                     </div>
 
-                    <div className="flex space-x-1">
-                        {navItems.map((item) => {
-                            const isActive = pathname === item.href;
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={`
-                                        flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
-                                        ${isActive
-                                            ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-                                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700'
-                                        }
-                                    `}
-                                >
-                                    <span>{item.icon}</span>
-                                    <span>{item.label}</span>
-                                </Link>
-                            );
-                        })}
+                    <div className="flex items-center space-x-1">
+                        {navItems.map((item) => (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === item.href
+                                    ? 'bg-blue-500 text-white shadow-md'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-slate-700'
+                                    }`}
+                            >
+                                <span className="mr-2">{item.icon}</span>
+                                {item.label}
+                            </Link>
+                        ))}
+                        <div className="ml-4 min-w-[180px] flex items-center">
+                            <ChannelSelector
+                                selectedChannelId={selectedChannelId}
+                                onChannelSelect={setSelectedChannelId}
+                                required={true}
+                                className="!mb-0 !mt-0"
+                                renderInline
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

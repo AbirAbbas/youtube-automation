@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cloudinaryService } from '@/lib/cloudinary';
+import { localStorageService } from '@/lib/local-storage-service';
 import { validateFile } from '@/lib/upload-utils';
 
 export async function POST(request: NextRequest) {
     try {
-        // Check if Cloudinary is configured
-        if (!cloudinaryService.isConfigured()) {
-            return NextResponse.json(
-                { error: 'Cloudinary is not properly configured. Please check your CLOUDINARY_URL environment variable.' },
-                { status: 500 }
-            );
-        }
-
         const formData = await request.formData();
         const file = formData.get('file') as File;
         const uploadType = formData.get('type') as string || 'auto';
@@ -66,19 +58,19 @@ export async function POST(request: NextRequest) {
         let result;
         switch (uploadType) {
             case 'image':
-                result = await cloudinaryService.uploadImage(buffer, uploadOptions);
+                result = await localStorageService.uploadImage(buffer, uploadOptions);
                 break;
             case 'audio':
-                result = await cloudinaryService.uploadAudio(buffer, uploadOptions);
+                result = await localStorageService.uploadAudio(buffer, uploadOptions);
                 break;
             default:
-                result = await cloudinaryService.uploadFile(buffer, uploadOptions);
+                result = await localStorageService.uploadFile(buffer, uploadOptions);
         }
 
         return NextResponse.json({
             success: true,
             data: result,
-            message: 'File uploaded successfully'
+            message: 'File uploaded successfully to local storage'
         });
 
     } catch (error) {
@@ -96,13 +88,6 @@ export async function POST(request: NextRequest) {
 // Handle file upload from URL
 export async function PUT(request: NextRequest) {
     try {
-        if (!cloudinaryService.isConfigured()) {
-            return NextResponse.json(
-                { error: 'Cloudinary is not properly configured. Please check your CLOUDINARY_URL environment variable.' },
-                { status: 500 }
-            );
-        }
-
         const { url, uploadType = 'auto', folder, ...options } = await request.json();
 
         if (!url) {
@@ -120,19 +105,19 @@ export async function PUT(request: NextRequest) {
         let result;
         switch (uploadType) {
             case 'image':
-                result = await cloudinaryService.uploadImage(url, uploadOptions);
+                result = await localStorageService.uploadImage(url, uploadOptions);
                 break;
             case 'audio':
-                result = await cloudinaryService.uploadAudio(url, uploadOptions);
+                result = await localStorageService.uploadAudio(url, uploadOptions);
                 break;
             default:
-                result = await cloudinaryService.uploadFromUrl(url, uploadOptions);
+                result = await localStorageService.uploadFromUrl(url, uploadOptions);
         }
 
         return NextResponse.json({
             success: true,
             data: result,
-            message: 'File uploaded from URL successfully'
+            message: 'File uploaded from URL successfully to local storage'
         });
 
     } catch (error) {
@@ -147,32 +132,31 @@ export async function PUT(request: NextRequest) {
     }
 }
 
-// Delete file
+// Handle file deletion
 export async function DELETE(request: NextRequest) {
     try {
-        if (!cloudinaryService.isConfigured()) {
-            return NextResponse.json(
-                { error: 'Cloudinary is not properly configured. Please check your CLOUDINARY_URL environment variable.' },
-                { status: 500 }
-            );
-        }
-
-        const { public_id, resource_type = 'image' } = await request.json();
+        const { public_id, resource_type = 'auto' } = await request.json();
 
         if (!public_id) {
             return NextResponse.json(
-                { error: 'No public_id provided' },
+                { error: 'Public ID is required' },
                 { status: 400 }
             );
         }
 
-        const result = await cloudinaryService.deleteFile(public_id, resource_type);
+        const success = await localStorageService.deleteFile(public_id, resource_type);
 
-        return NextResponse.json({
-            success: true,
-            data: result,
-            message: 'File deleted successfully'
-        });
+        if (success) {
+            return NextResponse.json({
+                success: true,
+                message: 'File deleted successfully from local storage'
+            });
+        } else {
+            return NextResponse.json(
+                { error: 'File not found or could not be deleted' },
+                { status: 404 }
+            );
+        }
 
     } catch (error) {
         console.error('Delete error:', error);

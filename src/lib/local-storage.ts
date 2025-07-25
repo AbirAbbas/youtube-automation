@@ -8,6 +8,9 @@ export interface LocalStorageOptions {
     public_id?: string;
     tags?: string[];
     metadata?: Record<string, any>;
+    resource_type?: 'image' | 'video' | 'audio' | 'raw' | 'auto';
+    format?: string;
+    quality?: string | number;
 }
 
 export interface LocalStorageResult {
@@ -18,6 +21,11 @@ export interface LocalStorageResult {
     bytes: number;
     created_at: string;
     is_local: true;
+    format?: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+    resource_type?: 'image' | 'video' | 'audio' | 'raw' | 'auto';
 }
 
 export class LocalFileStorage {
@@ -44,9 +52,9 @@ export class LocalFileStorage {
     }
 
     /**
-     * Save a video file locally
+     * Save any file locally with automatic type detection
      */
-    async saveVideo(
+    async saveFile(
         buffer: Buffer,
         options: LocalStorageOptions = {}
     ): Promise<LocalStorageResult> {
@@ -54,18 +62,24 @@ export class LocalFileStorage {
             await this.ensureBaseDir();
 
             const {
-                folder = 'videos',
+                folder = 'uploads',
                 public_id = this.generatePublicId(),
                 tags = [],
-                metadata = {}
+                metadata = {},
+                resource_type = 'auto',
+                format
             } = options;
+
+            // Detect file type if not specified
+            const detectedType = resource_type === 'auto' ? this.detectFileType(buffer) : resource_type;
+            const fileExtension = format || this.getDefaultExtension(detectedType);
 
             // Create folder structure
             const folderPath = path.join(this.baseDir, folder);
             await fs.mkdir(folderPath, { recursive: true });
 
-            // Generate filename with .mp4 extension
-            const filename = `${public_id}.mp4`;
+            // Generate filename with appropriate extension
+            const filename = `${public_id}.${fileExtension}`;
             const filePath = path.join(folderPath, filename);
 
             // Save the file
@@ -80,6 +94,8 @@ export class LocalFileStorage {
                 tags,
                 bytes: buffer.length,
                 created_at: new Date().toISOString(),
+                resource_type: detectedType,
+                format: fileExtension,
                 ...metadata
             };
             await fs.writeFile(metadataFilePath, JSON.stringify(metadataInfo, null, 2));
@@ -96,7 +112,9 @@ export class LocalFileStorage {
                 local_path: filePath,
                 bytes: buffer.length,
                 created_at: metadataInfo.created_at,
-                is_local: true
+                is_local: true,
+                format: fileExtension,
+                resource_type: detectedType
             };
 
         } catch (error) {
@@ -106,9 +124,97 @@ export class LocalFileStorage {
     }
 
     /**
+     * Save an image file locally
+     */
+    async saveImage(
+        buffer: Buffer,
+        options: LocalStorageOptions = {}
+    ): Promise<LocalStorageResult> {
+        return this.saveFile(buffer, {
+            ...options,
+            resource_type: 'image',
+            folder: options.folder || 'images'
+        });
+    }
+
+    /**
+     * Save an audio file locally
+     */
+    async saveAudio(
+        buffer: Buffer,
+        options: LocalStorageOptions = {}
+    ): Promise<LocalStorageResult> {
+        return this.saveFile(buffer, {
+            ...options,
+            resource_type: 'audio',
+            folder: options.folder || 'audio'
+        });
+    }
+
+    /**
+     * Save a video file locally
+     */
+    async saveVideo(
+        buffer: Buffer,
+        options: LocalStorageOptions = {}
+    ): Promise<LocalStorageResult> {
+        return this.saveFile(buffer, {
+            ...options,
+            resource_type: 'video',
+            folder: options.folder || 'videos'
+        });
+    }
+
+    /**
+     * Detect file type from buffer
+     */
+    private detectFileType(buffer: Buffer): 'image' | 'video' | 'audio' | 'raw' {
+        // Check for common file signatures
+        const header = buffer.slice(0, 12);
+
+        // Image formats
+        if (header.slice(0, 3).equals(Buffer.from([0xFF, 0xD8, 0xFF]))) return 'image'; // JPEG
+        if (header.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))) return 'image'; // PNG
+        if (header.slice(0, 6).equals(Buffer.from([0x47, 0x49, 0x46, 0x38, 0x37, 0x61])) ||
+            header.slice(0, 6).equals(Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))) return 'image'; // GIF
+        if (header.slice(0, 4).equals(Buffer.from([0x52, 0x49, 0x46, 0x46])) &&
+            header.slice(8, 12).equals(Buffer.from([0x57, 0x45, 0x42, 0x50]))) return 'image'; // WebP
+
+        // Video formats
+        if (header.slice(4, 8).equals(Buffer.from([0x66, 0x74, 0x79, 0x70]))) return 'video'; // MP4
+        if (header.slice(0, 4).equals(Buffer.from([0x1A, 0x45, 0xDF, 0xA3]))) return 'video'; // WebM
+        if (header.slice(0, 4).equals(Buffer.from([0x00, 0x00, 0x01, 0xBA]))) return 'video'; // MPEG
+
+        // Audio formats
+        if (header.slice(0, 3).equals(Buffer.from([0x49, 0x44, 0x33]))) return 'audio'; // MP3
+        if (header.slice(0, 4).equals(Buffer.from([0x52, 0x49, 0x46, 0x46])) &&
+            header.slice(8, 12).equals(Buffer.from([0x57, 0x41, 0x56, 0x45]))) return 'audio'; // WAV
+        if (header.slice(0, 4).equals(Buffer.from([0x4D, 0x34, 0x41, 0x20]))) return 'audio'; // M4A
+
+        // Default to raw if unknown
+        return 'raw';
+    }
+
+    /**
+     * Get default file extension for file type
+     */
+    private getDefaultExtension(resourceType: string): string {
+        switch (resourceType) {
+            case 'image':
+                return 'jpg';
+            case 'video':
+                return 'mp4';
+            case 'audio':
+                return 'mp3';
+            default:
+                return 'bin';
+        }
+    }
+
+    /**
      * Get file information from local storage
      */
-    async getFileInfo(public_id: string, folder = 'videos'): Promise<LocalStorageResult | null> {
+    async getFileInfo(public_id: string, folder = 'uploads'): Promise<LocalStorageResult | null> {
         try {
             const metadataFilePath = path.join(this.baseDir, folder, `${public_id}.meta.json`);
             const metadataContent = await fs.readFile(metadataFilePath, 'utf-8');
@@ -124,7 +230,9 @@ export class LocalFileStorage {
                 local_path: path.join(this.baseDir, folder, metadata.filename),
                 bytes: metadata.bytes,
                 created_at: metadata.created_at,
-                is_local: true
+                is_local: true,
+                format: metadata.format,
+                resource_type: metadata.resource_type
             };
         } catch (error) {
             return null;
@@ -134,10 +242,10 @@ export class LocalFileStorage {
     /**
      * Check if a file exists locally
      */
-    async fileExists(public_id: string, folder = 'videos'): Promise<boolean> {
+    async fileExists(public_id: string, folder = 'uploads'): Promise<boolean> {
         try {
-            const filePath = path.join(this.baseDir, folder, `${public_id}.mp4`);
-            await fs.access(filePath);
+            const metadataFilePath = path.join(this.baseDir, folder, `${public_id}.meta.json`);
+            await fs.access(metadataFilePath);
             return true;
         } catch {
             return false;
@@ -147,10 +255,12 @@ export class LocalFileStorage {
     /**
      * Get file buffer from local storage
      */
-    async getFileBuffer(public_id: string, folder = 'videos'): Promise<Buffer | null> {
+    async getFileBuffer(public_id: string, folder = 'uploads'): Promise<Buffer | null> {
         try {
-            const filePath = path.join(this.baseDir, folder, `${public_id}.mp4`);
-            return await fs.readFile(filePath);
+            const fileInfo = await this.getFileInfo(public_id, folder);
+            if (!fileInfo) return null;
+
+            return await fs.readFile(fileInfo.local_path);
         } catch {
             return null;
         }
@@ -159,12 +269,14 @@ export class LocalFileStorage {
     /**
      * Delete a file from local storage
      */
-    async deleteFile(public_id: string, folder = 'videos'): Promise<boolean> {
+    async deleteFile(public_id: string, folder = 'uploads'): Promise<boolean> {
         try {
-            const filePath = path.join(this.baseDir, folder, `${public_id}.mp4`);
+            const fileInfo = await this.getFileInfo(public_id, folder);
+            if (!fileInfo) return false;
+
             const metadataFilePath = path.join(this.baseDir, folder, `${public_id}.meta.json`);
 
-            await fs.unlink(filePath);
+            await fs.unlink(fileInfo.local_path);
             await fs.unlink(metadataFilePath);
 
             console.log(`🗑️ Deleted local file: ${public_id}`);
@@ -178,11 +290,11 @@ export class LocalFileStorage {
     /**
      * List all files in a folder
      */
-    async listFiles(folder = 'videos'): Promise<LocalStorageResult[]> {
+    async listFiles(folder = 'uploads'): Promise<LocalStorageResult[]> {
         try {
             const folderPath = path.join(this.baseDir, folder);
             const files = await fs.readdir(folderPath);
-            
+
             const metadataFiles = files.filter(file => file.endsWith('.meta.json'));
             const results: LocalStorageResult[] = [];
 
@@ -194,7 +306,7 @@ export class LocalFileStorage {
                 }
             }
 
-            return results.sort((a, b) => 
+            return results.sort((a, b) =>
                 new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
         } catch {
@@ -205,14 +317,14 @@ export class LocalFileStorage {
     /**
      * Clean up old files (older than specified days)
      */
-    async cleanupOldFiles(folder = 'videos', olderThanDays = 30): Promise<number> {
+    async cleanupOldFiles(folder = 'uploads', olderThanDays = 30): Promise<number> {
         try {
             const files = await this.listFiles(folder);
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
             let deletedCount = 0;
-            
+
             for (const file of files) {
                 const fileDate = new Date(file.created_at);
                 if (fileDate < cutoffDate) {
@@ -233,7 +345,7 @@ export class LocalFileStorage {
     /**
      * Get storage statistics
      */
-    async getStorageStats(folder = 'videos'): Promise<{
+    async getStorageStats(folder = 'uploads'): Promise<{
         fileCount: number;
         totalSize: number;
         formattedSize: string;
@@ -262,7 +374,7 @@ export class LocalFileStorage {
     private generatePublicId(): string {
         const timestamp = Date.now();
         const random = crypto.randomBytes(8).toString('hex');
-        return `video-${timestamp}-${random}`;
+        return `file-${timestamp}-${random}`;
     }
 
     /**

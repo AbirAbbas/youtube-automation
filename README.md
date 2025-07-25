@@ -4,14 +4,14 @@ A beautiful Next.js application that generates creative YouTube video ideas usin
 
 ## ✨ Features
 
-- **AI-Powered Idea Generation**: Uses OpenAI's GPT-4 to generate creative and engaging video ideas
+- **AI-Powered Idea Generation**: Uses OpenAI's GPT-4o to generate creative and engaging video ideas
 - **Topic-Relevant Content**: Ensures all generated ideas are directly related to your chosen topic
 - **Video Type Selection**: Generate ideas for full-length videos (8+ minutes) or YouTube Shorts (15-60 seconds)
 - **AI-Automatable Filter**: Option to generate only ideas suitable for full AI automation
 - **Category Selection**: Choose from 15+ popular YouTube categories to tailor your ideas
 - **Script Generation**: Convert ideas into detailed, engaging scripts
 - **Web Search Integration**: Scripts can include current information from the web using Tavily AI
-- **Audio Generation**: Convert scripts to professional audio using **Local TTS (Coqui)** or ElevenLabs
+- **Audio Generation**: Convert scripts to professional audio using **Local TTS (Kokoro)** or ElevenLabs
 - **Video Creation**: Automatically create videos with stock footage using Pexels
 - **Customizable Results**: Generate 3-10 ideas per request
 - **Beautiful UI**: Modern, responsive design with smooth animations
@@ -46,11 +46,15 @@ A beautiful Next.js application that generates creative YouTube video ideas usin
 
 3. **Set up Local TTS (Recommended for RTX 4090 users)**
    ```bash
-   # Install Coqui TTS for local inference
+   # Install Kokoro TTS for local inference (ultra-fast 82M parameter model)
+   pip install kokoro>=0.9.2 soundfile
+   apt-get -qq -y install espeak-ng
+   
+   # For fallback compatibility, also install Coqui TTS
    pip install TTS torch torchaudio
    
    # Test installation
-   tts --list_models
+   python3 -c "from kokoro import KPipeline; print('Kokoro TTS installed successfully')"
    ```
 
 4. **Set up environment variables**
@@ -120,8 +124,8 @@ A beautiful Next.js application that generates creative YouTube video ideas usin
 
 **🚀 Local TTS (Recommended for RTX 4090)**
 - **Free & Private**: Runs entirely on your hardware
-- **High Quality**: Uses Coqui XTTS-v2 model with 17 language support
-- **Voice Cloning**: Upload 6+ seconds of speech for voice cloning
+- **Ultra-Fast**: Uses Kokoro TTS 82M parameter model with natural sound
+- **Voice Cloning**: Upload 6+ seconds of speech for voice cloning (fallback to Coqui XTTS-v2)
 - **No API costs**: Unlimited generation without usage fees
 
 **☁️ Cloud TTS (ElevenLabs)**
@@ -135,14 +139,14 @@ A beautiful Next.js application that generates creative YouTube video ideas usin
 
 ## 🎤 Audio Generation Details
 
-### Local TTS (Coqui XTTS-v2)
-- **Hardware Requirements**: CUDA-capable GPU (RTX 4090 ideal)
+### Local TTS (Kokoro TTS)
+- **Hardware Requirements**: Any system with Python (CPU or GPU)
 - **Features**: 
-  - Voice cloning with 6+ second samples
-  - 17 language support
-  - 24kHz high-quality output
-  - Streaming capability (<200ms latency)
-  - DeepSpeed optimization for RTX cards
+  - Ultra-fast 82M parameter model with natural sound
+  - Multiple voices available (af_heart, af_bella, af_sarah, am_adam, etc.)
+  - Extremely fast inference (much faster than XTTS-v2)
+  - Voice cloning support (with Coqui XTTS-v2 fallback)
+  - Low memory usage
 - **Privacy**: All processing happens locally on your machine
 - **Cost**: Free after initial setup
 
@@ -234,18 +238,19 @@ Scripts can include current information by searching the web for:
 
 - **Frontend**: Next.js 15 with React 19 and TypeScript
 - **Styling**: Tailwind CSS with dark mode support
-- **AI Models**: OpenAI GPT-4 for idea generation, GPT-3.5-turbo for scripts
+- **AI Models**: OpenAI GPT-4o for idea generation and script generation
 - **Web Search**: Tavily AI for real-time information retrieval
 - **Audio**: 
-  - **Local**: Coqui TTS (XTTS-v2) for RTX 4090 inference
+  - **Local**: Kokoro TTS (82M parameter ultra-fast model) with Coqui TTS fallback
   - **Cloud**: ElevenLabs for cloud-based synthesis
 - **Video**: Pexels API for stock footage, FFmpeg for processing
 
 ## 💡 Performance Tips
 
-### For RTX 4090 Users:
-- Use Local TTS for unlimited, free generation
-- Enable DeepSpeed for optimal GPU utilization
+### For All Users:
+- Use Local TTS (Kokoro) for unlimited, free generation
+- Ultra-fast inference on any hardware (CPU or GPU)
+- For RTX 4090 users: Even faster processing with GPU acceleration
 - Upload high-quality voice samples for better cloning results
 - Consider using shorter text segments for faster processing
 

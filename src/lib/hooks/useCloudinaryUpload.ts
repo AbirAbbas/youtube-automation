@@ -1,14 +1,6 @@
 import { useState, useCallback } from 'react';
-import { CloudinaryUploadResult } from '@/lib/cloudinary';
 
-interface UploadState {
-    isUploading: boolean;
-    error: string | null;
-    result: CloudinaryUploadResult | null;
-    progress: number;
-}
-
-interface UploadOptions {
+export interface UploadOptions {
     type?: 'image' | 'audio' | 'auto';
     folder?: string;
     quality?: string;
@@ -16,7 +8,14 @@ interface UploadOptions {
     height?: string;
 }
 
-export function useCloudinaryUpload() {
+export interface UploadState {
+    isUploading: boolean;
+    error: string | null;
+    result: any;
+    progress: number;
+}
+
+export function useLocalUpload() {
     const [uploadState, setUploadState] = useState<UploadState>({
         isUploading: false,
         error: null,
@@ -132,32 +131,6 @@ export function useCloudinaryUpload() {
         }
     }, []);
 
-    const deleteFile = useCallback(async (publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image') => {
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    public_id: publicId,
-                    resource_type: resourceType,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Delete failed');
-            }
-
-            return data.data;
-        } catch (error) {
-            console.error('Delete error:', error);
-            throw error;
-        }
-    }, []);
-
     const reset = useCallback(() => {
         setUploadState({
             isUploading: false,
@@ -171,7 +144,9 @@ export function useCloudinaryUpload() {
         ...uploadState,
         uploadFile,
         uploadFromUrl,
-        deleteFile,
         reset,
     };
-} 
+}
+
+// Export the old name for backward compatibility
+export const useCloudinaryUpload = useLocalUpload; 

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { VideoScript, ScriptSection } from '@/lib/db/schema';
-import ConvertToAudioButton from '@/app/components/ConvertToAudioButton';
-import GenerateVideoButton from '@/app/components/GenerateVideoButton';
+import Button from '@/app/components/ui/Button';
+import ScriptCard from '@/app/components/ui/ScriptCard';
 
 interface SavedScriptsResponse {
     success: boolean;
@@ -17,14 +17,19 @@ interface ScriptWithSections extends VideoScript {
 
 const SavedScriptsPage = () => {
     const [scripts, setScripts] = useState<ScriptWithSections[]>([]);
+    const [archivedScripts, setArchivedScripts] = useState<ScriptWithSections[]>([]);
+    const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [expandedScripts, setExpandedScripts] = useState<Set<number>>(new Set());
     const [regeneratingScripts, setRegeneratingScripts] = useState<Set<number>>(new Set());
     const [deletingScripts, setDeletingScripts] = useState<Set<number>>(new Set());
+    const [archivingScripts, setArchivingScripts] = useState<Set<number>>(new Set());
+    const [unarchivingScripts, setUnarchivingScripts] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         fetchSavedScripts();
+        fetchArchivedScripts();
     }, []);
 
     const fetchSavedScripts = async () => {
@@ -43,6 +48,21 @@ const SavedScriptsPage = () => {
             console.error('Error fetching scripts:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchArchivedScripts = async () => {
+        try {
+            const response = await fetch('/api/get-scripts?archived=true');
+            const data: SavedScriptsResponse = await response.json();
+
+            if (data.scripts) {
+                setArchivedScripts(data.scripts);
+            } else {
+                console.error('Failed to fetch archived scripts:', data.error);
+            }
+        } catch (err) {
+            console.error('Error fetching archived scripts:', err);
         }
     };
 
@@ -104,17 +124,15 @@ const SavedScriptsPage = () => {
                 },
                 body: JSON.stringify({
                     videoIdeaId: script.videoIdeaId,
-                    enableWebSearch: false, // Default to false, user can enable on ideas page
-                    regenerate: true
+                    enableWebSearch: false
                 }),
             });
 
             const data = await response.json();
 
             if (data.success) {
-                alert('Script regenerated successfully! The page will refresh to show the new script.');
-                // Refresh the scripts list
                 await fetchSavedScripts();
+                alert('Script regenerated successfully!');
             } else {
                 throw new Error(data.error || 'Failed to regenerate script');
             }
@@ -147,7 +165,6 @@ const SavedScriptsPage = () => {
             const data = await response.json();
 
             if (data.success) {
-                // Remove the script from the local state
                 setScripts(prevScripts => prevScripts.filter(s => s.id !== script.id));
             } else {
                 throw new Error(data.error || 'Failed to delete script');
@@ -164,6 +181,84 @@ const SavedScriptsPage = () => {
         }
     };
 
+    const handleArchiveScript = async (script: VideoScript) => {
+        const confirmed = window.confirm(
+            `Are you sure you want to archive the script "${script.title}"? You can restore it from the archived section later.`
+        );
+
+        if (!confirmed) return;
+
+        setArchivingScripts(prev => new Set(prev).add(script.id));
+
+        try {
+            const response = await fetch('/api/archive-script', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    scriptId: script.id,
+                    action: 'archive'
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Move script from active to archived
+                setScripts(prevScripts => prevScripts.filter(s => s.id !== script.id));
+                setArchivedScripts(prevArchived => [...prevArchived, { ...script, isArchived: true }]);
+            } else {
+                throw new Error(data.error || 'Failed to archive script');
+            }
+        } catch (error) {
+            console.error('Error archiving script:', error);
+            alert('Failed to archive script. Please try again.');
+        } finally {
+            setArchivingScripts(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(script.id);
+                return newSet;
+            });
+        }
+    };
+
+    const handleUnarchiveScript = async (script: VideoScript) => {
+        setUnarchivingScripts(prev => new Set(prev).add(script.id));
+
+        try {
+            const response = await fetch('/api/archive-script', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    scriptId: script.id,
+                    action: 'unarchive'
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Move script from archived to active
+                setArchivedScripts(prevArchived => prevArchived.filter(s => s.id !== script.id));
+                setScripts(prevScripts => [...prevScripts, { ...script, isArchived: false }]);
+            } else {
+                throw new Error(data.error || 'Failed to unarchive script');
+            }
+        } catch (error) {
+            console.error('Error unarchiving script:', error);
+            alert('Failed to restore script. Please try again.');
+        } finally {
+            setUnarchivingScripts(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(script.id);
+                return newSet;
+            });
+        }
+    };
+
     const toggleScriptExpansion = (scriptId: number) => {
         setExpandedScripts(prev => {
             const newSet = new Set(prev);
@@ -171,256 +266,185 @@ const SavedScriptsPage = () => {
                 newSet.delete(scriptId);
             } else {
                 newSet.add(scriptId);
-                // Fetch sections if not already loaded
-                const script = scripts.find(s => s.id === scriptId);
-                if (script && !script.sections) {
-                    fetchScriptSections(scriptId);
-                }
             }
             return newSet;
         });
     };
 
-    const formatDate = (date: string | Date) => {
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
-        return dateObj.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'completed':
-                return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-            case 'generating':
-                return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-            case 'failed':
-                return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-            default:
-                return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
-        }
-    };
-
     if (loading) {
         return (
-            <div className="container mx-auto px-4 py-8">
-                <div className="flex justify-center items-center min-h-[400px]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800">
+                <div className="container mx-auto px-4 py-8">
+                    <div className="flex justify-center items-center min-h-[60vh]">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                                Loading Scripts
+                            </h3>
+                            <p className="text-gray-600 dark:text-gray-400">
+                                Fetching your saved video scripts...
+                            </p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </main>
         );
     }
 
     if (error) {
         return (
-            <div className="container mx-auto px-4 py-8">
-                <div className="text-center">
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
-                        <h3 className="text-lg font-semibold text-red-800 dark:text-red-200 mb-2">
-                            Error Loading Scripts
-                        </h3>
-                        <p className="text-red-600 dark:text-red-300">{error}</p>
-                        <button
-                            onClick={fetchSavedScripts}
-                            className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                        >
-                            Try Again
-                        </button>
+            <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800">
+                <div className="container mx-auto px-4 py-8">
+                    <div className="flex justify-center items-center min-h-[60vh]">
+                        <div className="max-w-md w-full">
+                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center border border-red-200 dark:border-red-800">
+                                <div className="text-6xl mb-4">⚠️</div>
+                                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                                    Error Loading Scripts
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                    {error}
+                                </p>
+                                <Button
+                                    variant="primary"
+                                    onClick={fetchSavedScripts}
+                                    className="w-full"
+                                >
+                                    🔄 Try Again
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </main>
         );
     }
+
+    const currentScripts = activeTab === 'active' ? scripts : archivedScripts;
 
     return (
         <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-900 dark:via-purple-900 dark:to-slate-800">
             <div className="container mx-auto px-4 py-8">
-                <div className="mb-8 text-center">
-                    <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-                        Saved Video Scripts
+                {/* Header Section */}
+                <div className="text-center mb-12">
+                    <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
+                        📚 Saved Video Scripts
                     </h1>
-                    <p className="text-lg text-gray-600 dark:text-gray-300">
-                        {scripts.length === 0
-                            ? "No saved scripts yet. Generate some scripts from your ideas first!"
-                            : `You have ${scripts.length} saved script${scripts.length !== 1 ? 's' : ''}`
+
+                    {/* Tabs */}
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-white dark:bg-slate-800 rounded-lg p-1 shadow-md border border-gray-200 dark:border-gray-700">
+                            <button
+                                onClick={() => setActiveTab('active')}
+                                className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'active'
+                                        ? 'bg-blue-500 text-white shadow-md'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400'
+                                    }`}
+                            >
+                                Active Scripts ({scripts.length})
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('archived')}
+                                className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'archived'
+                                        ? 'bg-blue-500 text-white shadow-md'
+                                        : 'text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400'
+                                    }`}
+                            >
+                                Archived ({archivedScripts.length})
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                        {activeTab === 'active'
+                            ? (scripts.length === 0
+                                ? "Ready to create amazing content? Generate some scripts from your ideas first!"
+                                : `Manage and create content from your ${scripts.length} saved script${scripts.length !== 1 ? 's' : ''}`
+                            )
+                            : (archivedScripts.length === 0
+                                ? "No archived scripts yet. Archive scripts you want to keep but aren't actively using."
+                                : `You have ${archivedScripts.length} archived script${archivedScripts.length !== 1 ? 's' : ''}`
+                            )
                         }
                     </p>
                 </div>
 
-                {scripts.length === 0 ? (
-                    <div className="text-center py-16">
-                        <div className="bg-gray-50 dark:bg-slate-800/50 rounded-lg p-8 max-w-md mx-auto">
-                            <div className="text-6xl mb-4">🎬</div>
-                            <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                No Scripts Generated Yet
-                            </h3>
-                            <p className="text-gray-500 dark:text-gray-400 mb-6">
-                                Generate scripts from your saved ideas to see them here.
-                            </p>
-                            <a
-                                href="/saved-ideas"
-                                className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                            >
-                                View Saved Ideas
-                            </a>
+                {/* Empty State */}
+                {currentScripts.length === 0 ? (
+                    <div className="flex justify-center">
+                        <div className="max-w-lg w-full">
+                            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-12 text-center border border-gray-200 dark:border-gray-700">
+                                <div className="text-8xl mb-6">{activeTab === 'active' ? '🎬' : '📦'}</div>
+                                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
+                                    {activeTab === 'active' ? 'No Scripts Generated Yet' : 'No Archived Scripts'}
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+                                    {activeTab === 'active'
+                                        ? 'Transform your creative ideas into engaging video scripts. Head over to your saved ideas and start generating!'
+                                        : 'Archive scripts you want to keep but aren\'t actively using. They\'ll appear here where you can view details and restore them anytime.'
+                                    }
+                                </p>
+                                {activeTab === 'active' && (
+                                    <Button
+                                        variant="primary"
+                                        size="lg"
+                                        onClick={() => window.location.href = '/saved-ideas'}
+                                        className="w-full"
+                                    >
+                                        💡 Browse Saved Ideas
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-6">
-                        {scripts.map((script) => (
-                            <div
-                                key={script.id}
-                                className="bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden"
+                    <>
+                        {/* Scripts Grid */}
+                        <div className="space-y-6 mb-12">
+                            {currentScripts.map((script) => (
+                                <ScriptCard
+                                    key={script.id}
+                                    script={script}
+                                    isExpanded={expandedScripts.has(script.id)}
+                                    onToggleExpansion={() => toggleScriptExpansion(script.id)}
+                                    onAudioGenerated={(audioUrl) => handleAudioGenerated(script.id, audioUrl)}
+                                    onVideoGenerated={(videoUrl) => handleVideoGenerated(script.id, videoUrl)}
+                                    onRegenerateScript={() => handleRegenerateScript(script)}
+                                    onDeleteScript={() => handleDeleteScript(script)}
+                                    onArchiveScript={activeTab === 'active' ? () => handleArchiveScript(script) : undefined}
+                                    onUnarchiveScript={activeTab === 'archived' ? () => handleUnarchiveScript(script) : undefined}
+                                    isRegenerating={regeneratingScripts.has(script.id)}
+                                    isDeleting={deletingScripts.has(script.id)}
+                                    isArchiving={archivingScripts.has(script.id)}
+                                    isUnarchiving={unarchivingScripts.has(script.id)}
+                                    onFetchSections={() => fetchScriptSections(script.id)}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Footer Actions */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                            <Button
+                                variant="secondary"
+                                size="lg"
+                                onClick={() => {
+                                    fetchSavedScripts();
+                                    fetchArchivedScripts();
+                                }}
+                                className="min-w-[200px]"
                             >
-                                <div className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="flex-1">
-                                            <div className="flex flex-wrap gap-2 mb-3">
-                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(script.status)}`}>
-                                                    📊 {script.status}
-                                                </span>
-                                                {script.estimatedLength && (
-                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                                        ⏱️ {script.estimatedLength}
-                                                    </span>
-                                                )}
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                                    📝 {script.totalSections} sections
-                                                </span>
-                                            </div>
-                                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 leading-tight">
-                                                {script.title}
-                                            </h3>
-                                        </div>
-
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex gap-2">
-                                                <ConvertToAudioButton
-                                                    scriptId={script.id}
-                                                    existingAudioUrl={script.audioUrl}
-                                                    onAudioGenerated={(audioUrl) => handleAudioGenerated(script.id, audioUrl)}
-                                                    disabled={script.status !== 'completed'}
-                                                />
-                                                <button
-                                                    onClick={() => toggleScriptExpansion(script.id)}
-                                                    className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
-                                                >
-                                                    {expandedScripts.has(script.id) ? '📄 Hide Script' : '👁️ View Script'}
-                                                </button>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <GenerateVideoButton
-                                                    scriptId={script.id}
-                                                    existingVideoUrl={script.videoUrl}
-                                                    hasAudio={!!script.audioUrl}
-                                                    onVideoGenerated={(videoUrl) => handleVideoGenerated(script.id, videoUrl)}
-                                                    disabled={script.status !== 'completed'}
-                                                />
-                                                <button
-                                                    onClick={() => handleRegenerateScript(script)}
-                                                    disabled={regeneratingScripts.has(script.id) || script.status !== 'completed'}
-                                                    className={`
-                                                        px-3 py-1 rounded-lg font-medium transition-all duration-200 text-sm
-                                                        ${regeneratingScripts.has(script.id) || script.status !== 'completed'
-                                                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                                            : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                                                        }
-                                                    `}
-                                                >
-                                                    {regeneratingScripts.has(script.id) ? (
-                                                        <span className="flex items-center">
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
-                                                            Regenerating...
-                                                        </span>
-                                                    ) : (
-                                                        '🔄 Regenerate'
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteScript(script)}
-                                                    disabled={deletingScripts.has(script.id) || regeneratingScripts.has(script.id)}
-                                                    className={`
-                                                        px-3 py-1 rounded-lg font-medium transition-all duration-200 text-sm
-                                                        ${deletingScripts.has(script.id) || regeneratingScripts.has(script.id)
-                                                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                                                            : 'bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                                                        }
-                                                    `}
-                                                >
-                                                    {deletingScripts.has(script.id) ? (
-                                                        <span className="flex items-center">
-                                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
-                                                            Deleting...
-                                                        </span>
-                                                    ) : (
-                                                        '🗑️ Delete'
-                                                    )}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between text-sm">
-                                        <span className="text-gray-500 dark:text-gray-400 text-xs">
-                                            Created: {formatDate(script.createdAt)}
-                                        </span>
-                                    </div>
-
-                                    {expandedScripts.has(script.id) && (
-                                        <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-                                            {script.sections ? (
-                                                <div className="space-y-4">
-                                                    {script.sections
-                                                        .sort((a, b) => a.orderIndex - b.orderIndex)
-                                                        .map((section) => (
-                                                            <div
-                                                                key={section.id}
-                                                                className="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4"
-                                                            >
-                                                                <div className="flex justify-between items-start mb-2">
-                                                                    <h4 className="font-semibold text-gray-900 dark:text-white">
-                                                                        {section.title}
-                                                                    </h4>
-                                                                    {section.estimatedDuration && (
-                                                                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-800 px-2 py-1 rounded">
-                                                                            {section.estimatedDuration}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                                                    {section.content}
-                                                                </div>
-                                                            </div>
-                                                        ))
-                                                    }
-                                                </div>
-                                            ) : (
-                                                <div className="flex justify-center items-center py-8">
-                                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                                                    <span className="ml-2 text-gray-600 dark:text-gray-400">Loading script sections...</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {scripts.length > 0 && (
-                    <div className="mt-12 text-center">
-                        <button
-                            onClick={fetchSavedScripts}
-                            className="inline-flex items-center px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                        >
-                            🔄 Refresh Scripts
-                        </button>
-                    </div>
+                                🔄 Refresh Scripts
+                            </Button>
+                            <Button
+                                variant="primary-ghost"
+                                size="lg"
+                                onClick={() => window.location.href = '/saved-ideas'}
+                                className="min-w-[200px]"
+                            >
+                                💡 Generate More Scripts
+                            </Button>
+                        </div>
+                    </>
                 )}
             </div>
         </main>
