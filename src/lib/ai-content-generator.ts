@@ -161,47 +161,50 @@ Current Title: ${script.title}
 
 Script Content Preview: ${fullContent.substring(0, 500)}...
 
-🔥 CLICKBAIT REQUIREMENTS:
+🔥 CREATIVE TRANSFORMATION REQUIREMENTS:
 - MAX 60 characters (shorter = better)
-- Use EMOTIONAL TRIGGERS: Fear, curiosity, urgency, shock, controversy
-- Include SPECIFIC NUMBERS: "2AM", "24 hours", "7 days", etc.
-- Create CURIOSITY GAPS: "You Don't Know", "Nobody Tells You", "Hidden Truth"
-- Use POWER WORDS: Dying, Destroying, Secret, Banned, Exposed, Shocking
-- Make it PERSONAL: "Your Brain", "Your Body", "You're Making"
-- Add URGENCY: "Right Now", "Before It's Too Late", "Immediately"
+- Be WILDLY CREATIVE and UNPREDICTABLE
+- Don't follow obvious patterns or formulas
+- Think of completely unexpected angles
+- Use varied emotional triggers: mystery, controversy, shock, curiosity, urgency, surprise
+- Mix different styles: casual, dramatic, scientific, personal, mysterious
 
-🎯 PROVEN FORMULAS:
-- "[Body Part/Thing] is [Dying/Destroying] at [Specific Time] (You Don't Know)"
-- "The [Shocking Thing] Nobody Tells You About [Topic]"
-- "[Number] [Thing] That Will [Destroy/Save] Your [Life/Future]"
-- "Why [Experts] Are [Wrong/Lying] About [Topic]"
-- "[Topic] is [Killing/Ruining] You (Here's How to Stop It)"
+🎯 CREATIVE APPROACHES (PICK ONE THAT FITS):
+- Turn it into a mystery or conspiracy
+- Make it personal and relatable  
+- Add shocking scientific angle
+- Create urgency or time pressure
+- Use controversial perspective
+- Add surprising numbers or facts
+- Make it about hidden truths
+- Focus on transformation or change
+- Use emotional storytelling
+- Add conspiracy or secret elements
 
-❌ AVOID: Generic educational language, "How to", "A guide to", boring patterns
+❌ AVOID BORING FORMULAS:
+- Don't just add "shocking" or "secret" to everything
+- Avoid overused patterns like "[X] is killing you"
+- Don't make it sound like every other clickbait title
+- Skip generic educational language
 
-✅ TRANSFORMATION EXAMPLES:
-Instead of: "Tips for [topic]" → "Your [topic] is Destroying You (Stop This)"
-Instead of: "Understanding [topic]" → "This [topic] Secret Will Shock You"
-Instead of: "Guide to [topic]" → "[Topic] is Rewiring Your Brain (Scientists Baffled)"
+🎨 BE CREATIVE AND UNEXPECTED:
+Analyze the current title "${script.title}" and find a completely unique angle that nobody would expect. Make people curious in a fresh way that stands out from typical YouTube titles.
 
-Focus on the CURRENT TITLE: "${script.title}"
-Transform it using the clickbait formulas above.
-
-Return ONLY the new clickbait title - nothing else. Make it impossible to scroll past!`;
+Return ONLY the new clickbait title - nothing else. Make it impossible to scroll past but totally unique!`;
 
             const completion = await openai.chat.completions.create({
                 model: 'gpt-4o',
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a master YouTube clickbait creator who generates titles with 10M+ views. Your titles are short, shocking, and impossible to ignore. Focus on emotional triggers, curiosity gaps, and urgency. Return ONLY the title - no quotes, no explanations, no additional text.'
+                        content: 'You are a master YouTube clickbait creator who generates UNIQUE titles with 10M+ views. Your priority is CREATIVITY and UNPREDICTABILITY - never follow repetitive formulas. Each title should feel completely original and unexpected. Focus on finding unique angles that make people curious in fresh ways. Return ONLY the title - no quotes, no explanations, no additional text.'
                     },
                     {
                         role: 'user',
                         content: prompt
                     }
                 ],
-                temperature: 0.9,
+                temperature: 1.0, // Maximum creativity for unique titles
                 max_tokens: 50, // Short response for title only
             });
 

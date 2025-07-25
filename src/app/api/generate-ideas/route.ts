@@ -26,49 +26,49 @@ export async function POST(request: NextRequest) {
         // Build the base prompt with emphasis on clickbait titles
         let prompt = `Generate exactly ${count} INSANELY CLICKABLE YouTube ${videoType === 'shorts' ? 'Shorts' : 'video'} ideas about "${topic}"${category ? ` in the ${category} category` : ''}.
 
-🔥 TITLE REQUIREMENTS - MAKE THEM IRRESISTIBLE:
+🔥 TITLE REQUIREMENTS - MAKE THEM DIVERSE & IRRESISTIBLE:
 - MAX 60 characters (shorter = better)
-- Use EMOTIONAL TRIGGERS: Fear, curiosity, urgency, shock, controversy
-- Include SPECIFIC NUMBERS: "2AM", "24 hours", "7 days", etc.
-- Create CURIOSITY GAPS: "You Don't Know", "Nobody Tells You", "Hidden Truth"
-- Use POWER WORDS: Dying, Destroying, Secret, Banned, Exposed, Shocking
-- Make it PERSONAL: "Your Brain", "Your Body", "You're Making"
-- Add URGENCY: "Right Now", "Before It's Too Late", "Immediately"
+- Each title should feel COMPLETELY DIFFERENT from the others
+- Use varied emotional triggers: fear, curiosity, urgency, shock, controversy, surprise, mystery
+- Mix different angles: scientific, personal, shocking facts, conspiracy, transformation, secrets
+- Vary the language style: some casual, some dramatic, some mysterious, some urgent
 
-🎯 PROVEN CLICKBAIT FORMULAS TO USE:
-- "[Body Part/Thing] is [Dying/Destroying] at [Specific Time] (You Don't Know)"
-- "The [Shocking Thing] About ${topic} Nobody Tells You"
-- "[Number] ${topic} [Thing] That Will [Destroy/Save] Your [Life/Health/Future]"
-- "Why [Everyone/Doctors/Experts] Are [Wrong/Lying] About ${topic}"
-- "This [Simple Thing] [Destroys/Fixes] ${topic} [Problem] in [Time Period]"
-- "${topic} is [Killing/Ruining] You (Here's How to Stop It)"
-- "The [Hidden/Secret/Banned] [Thing] About ${topic}"
+🎯 DIVERSE CLICKBAIT APPROACHES (MIX THESE UP):
+- Fear/Warning: Something dangerous happening
+- Mystery/Secret: Hidden information revealed  
+- Transformation: Dramatic before/after promises
+- Controversy: Challenge popular beliefs
+- Urgency: Time-sensitive information
+- Personal: Direct impact on viewer
+- Scientific: Research reveals shocking truth
+- Conspiracy: What "they" don't want you to know
+- Numerical: Specific counts that intrigue
+- Emotional: Tap into deep feelings
 
-${category ? `🎭 CATEGORY-SPECIFIC APPROACH FOR "${category}":
-${category.toLowerCase().includes('how-to') ? '- Focus on dramatic transformations and instant results\n- "This ONE Trick" formulas work well' : ''}${category.toLowerCase().includes('essay') ? '- Use philosophical shock: "Why Everything You Know About X is Wrong"\n- Challenge conventional wisdom dramatically' : ''}${category.toLowerCase().includes('explainer') ? '- Promise hidden truths and secret knowledge\n- "The REAL Reason Behind X" approach' : ''}${category.toLowerCase().includes('storytime') ? '- Use personal drama and shocking revelations\n- "I Did X for 30 Days (This Happened)" style' : ''}${category.toLowerCase().includes('comparison') ? '- Use shocking difference reveals\n- "X vs Y: The Truth Will Shock You" format' : ''}${category.toLowerCase().includes('top') ? '- Promise mind-blowing lists with consequences\n- "X Things Destroying Your Life (You Do #3 Daily)"' : ''}${category.toLowerCase().includes('tips') ? '- Focus on secret tips and instant transformations\n- "This ${topic} Secret Changes Everything" style' : ''}${category.toLowerCase().includes('motivational') ? '- Use life-changing revelation language\n- "This ${topic} Truth Will Transform Your Life" approach' : ''}${category.toLowerCase().includes('educational') ? '- Promise shocking facts and hidden knowledge\n- "Scientists Hide This ${topic} Truth From You" style' : ''}${category.toLowerCase().includes('analysis') ? '- Use controversial takes and shocking conclusions\n- "Why ${topic} Analysis is COMPLETELY Wrong" format' : ''}${category.toLowerCase().includes('deep dive') ? '- Promise to expose hidden depths and secrets\n- "The ${topic} Iceberg: What They Don\'t Want You to Know"' : ''}
+${category ? `🎭 CATEGORY INFLUENCE FOR "${category}":
+${category.toLowerCase().includes('how-to') ? '- Vary between instant transformations, secret methods, and game-changing techniques' : ''}${category.toLowerCase().includes('essay') ? '- Mix philosophical challenges, controversial takes, and mind-bending perspectives' : ''}${category.toLowerCase().includes('explainer') ? '- Alternate between hidden truths, shocking reveals, and mystery solving' : ''}${category.toLowerCase().includes('storytime') ? '- Use personal drama, shocking experiences, and jaw-dropping revelations' : ''}${category.toLowerCase().includes('comparison') ? '- Create surprising face-offs, shocking differences, and unexpected winners' : ''}${category.toLowerCase().includes('top') ? '- Mix countdown drama, shocking rankings, and surprising inclusions' : ''}${category.toLowerCase().includes('tips') ? '- Vary between secret hacks, surprising methods, and game-changing discoveries' : ''}${category.toLowerCase().includes('motivational') ? '- Mix life-changing realizations, shocking truths, and powerful transformations' : ''}${category.toLowerCase().includes('educational') ? '- Alternate between mind-blowing facts, shocking studies, and paradigm shifts' : ''}${category.toLowerCase().includes('analysis') ? '- Use controversial conclusions, shocking discoveries, and paradigm-breaking insights' : ''}${category.toLowerCase().includes('deep dive') ? '- Mix iceberg revelations, rabbit hole journeys, and shocking depth reveals' : ''}
 
-` : ''}❌ AVOID THESE BORING PATTERNS:
-- "10 reasons why..." 
-- "How to..." (unless dramatic)
-- "A guide to..."
-- "Everything you need to know about..."
-- Generic educational language
+` : ''}❌ AVOID REPETITIVE PATTERNS:
+- Don't start multiple titles the same way
+- Don't overuse the same power words
+- Don't follow the same sentence structure
+- Avoid making all titles sound similar
+- Mix up the emotional approaches
 
-✅ GOOD CLICKBAIT EXAMPLES FOR ${topic}:
-Instead of: "Tips for better ${topic.toLowerCase()}"
-Use: "Your ${topic} is Destroying You at Night (Stop This)"
+🎨 VARIETY EXAMPLES FOR INSPIRATION (DON'T COPY THESE):
+- Mysterious: "Scientists Can't Explain This ${topic} Phenomenon"
+- Urgent: "${topic} Emergency: Why Millions Are Panicking"  
+- Personal: "I Tried ${topic} for 30 Days. This Happened."
+- Controversial: "Why ${topic} Experts Are Dead Wrong"
+- Numerical: "3 ${topic} Facts That Break Physics"
+- Emotional: "${topic} Made Me Cry (Here's Why)"
 
-Instead of: "Understanding ${topic.toLowerCase()}"  
-Use: "This ${topic} Secret Doctors Don't Want You to Know"
-
-Instead of: "Benefits of ${topic.toLowerCase()}"
-Use: "${topic} is Rewiring Your Brain (Scientists Shocked)"
-
-🎬 CONTENT MUST STILL BE VALUABLE:
-- The dramatic title must be backed by genuine ${topic} content
-- Ideas should deliver on the clickbait promise
-- Include educational or entertainment value related to ${topic}
-- Think of unique angles and approaches to ${topic}${category ? ` using ${category} format` : ''}`;
+🎬 CONTENT REQUIREMENTS:
+- Each idea must be genuinely about ${topic}${category ? ` using ${category} approach` : ''}
+- Vary the specific aspects or angles of ${topic} covered
+- Mix different depths: surface-level shocking vs deep revelations
+- Include different time scales: instant, daily, long-term impacts
+- Think of unique, unexpected angles on ${topic}`;
 
         // Add AI automation filter
         if (aiAutomatable) {
@@ -132,7 +132,7 @@ CREATE TITLES THAT ARE IMPOSSIBLE TO IGNORE!`;
             messages: [
                 {
                     role: 'system',
-                    content: `You are a master YouTube clickbait creator who generates titles with 10M+ views. Your titles are short, shocking, and impossible to ignore. Focus on emotional triggers, curiosity gaps, and urgency. Make titles that people literally cannot scroll past. Every title must be directly about "${topic}"${category ? ` using ${category} format/style` : ''}. ${aiAutomatable ? 'Ensure content can be AI-generated with narration over stock footage.' : ''} ${videoType === 'shorts' ? 'Create maximum-impact Shorts titles.' : 'Create binge-worthy full-video titles.'} Return ONLY valid JSON - no markdown, no extra text.`,
+                    content: `You are a master YouTube clickbait creator who generates DIVERSE titles with 10M+ views. Your #1 priority is VARIETY - each title must feel completely different in style, emotion, and approach. Never follow repetitive patterns or formulas. Be wildly creative and unpredictable. Every title must be about "${topic}"${category ? ` using ${category} format/style` : ''} but approach it from totally different angles each time. ${aiAutomatable ? 'Ensure content can be AI-generated with narration over stock footage.' : ''} ${videoType === 'shorts' ? 'Create maximum-impact Shorts titles.' : 'Create binge-worthy full-video titles.'} Return ONLY valid JSON - no markdown, no extra text.`,
                 },
                 {
                     role: 'user',
@@ -140,10 +140,10 @@ CREATE TITLES THAT ARE IMPOSSIBLE TO IGNORE!`;
                 },
             ],
             max_tokens: 2000,
-            temperature: 0.95, // Higher creativity for more dramatic titles
-            top_p: 0.9,
-            frequency_penalty: 0.5, // Avoid repetitive phrases
-            presence_penalty: 0.6, // Encourage varied approaches
+            temperature: 1.0, // Maximum creativity for diverse titles
+            top_p: 0.85,
+            frequency_penalty: 0.8, // Strong penalty against repetitive phrases
+            presence_penalty: 0.7, // Encourage totally different approaches
         });
 
         const responseText = completion.choices[0]?.message?.content?.trim();

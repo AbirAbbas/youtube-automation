@@ -66,11 +66,12 @@ export async function POST(request: NextRequest) {
 
         console.log(`🤖 Starting automated YouTube upload for script ${scriptId} to channel ${channel.name}`);
 
-        // Generate AI content (title, description, tags)
-        const generatedTitle = await aiContentGenerator.generateVideoTitle(script, sections);
+        // Use the original script title (from idea generation) instead of regenerating
+        // const generatedTitle = await aiContentGenerator.generateVideoTitle(script, sections);
+        const finalTitle = script.title; // Keep the original clickbait title
         const generatedContent = await aiContentGenerator.generateVideoContent(script, sections);
 
-        console.log(`📝 Generated content for "${generatedTitle}"`);
+        console.log(`📝 Using original title: "${finalTitle}"`);
 
         // --- YouTube-based scheduling logic ---
         // Fetch scheduled videos from YouTube
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
                 channelId,
                 tempVideoPath,
                 {
-                    title: generatedTitle,
+                    title: finalTitle,
                     description: generatedContent.description,
                     tags: generatedContent.tags,
                     privacyStatus: 'private', // Start as private, will be published at scheduled time
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
                 videoId: result.videoId,
                 videoUrl: result.videoUrl,
                 generatedContent: {
-                    title: generatedTitle,
+                    title: finalTitle,
                     description: generatedContent.description,
                     tags: generatedContent.tags
                 }
